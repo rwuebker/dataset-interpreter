@@ -51,6 +51,11 @@
   - `severity_score` for each issue
   - `prioritized_issues` sorted by severity for easier downstream UX rendering
 - Verified expanded backend test suite passes (`10 passed`).
+- Completed Day 9 pipeline integration polish:
+  - added `stage_history` tracking in pipeline summary
+  - added configurable failure simulation control (`SIMULATE_JOB_FAILURE_PROBABILITY`)
+  - improved failed-job payloads to include pipeline summary and stage history
+- Verified backend tests remain stable (`10 passed`).
 
 ## Next Planned Work
-- Move into Day 9 pipeline integration polish and then begin Day 10 OpenAI interpretation integration.
+- Begin Day 10 OpenAI interpretation integration with grounded prompt + deterministic fallback.
