@@ -47,7 +47,10 @@
   - mixed-type inconsistency detection
 - Updated orchestrator to pass ingestion context into issue detection.
 - Added issue-detection tests for real CSV checks and profile-only fallback mode.
+- Added Day 8 issue prioritization refinement:
+  - `severity_score` for each issue
+  - `prioritized_issues` sorted by severity for easier downstream UX rendering
 - Verified expanded backend test suite passes (`10 passed`).
 
 ## Next Planned Work
-- Continue Day 8 issue-detection refinement (ranking/prioritization) and then move into Day 9 integration polish.
+- Move into Day 9 pipeline integration polish and then begin Day 10 OpenAI interpretation integration.

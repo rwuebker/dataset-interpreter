@@ -30,6 +30,9 @@ def test_issue_detection_flags_duplicates_outliers_and_type_inconsistencies(tmp_
     assert issues["type_inconsistencies"] == "detected"
     assert "mixed" in issues["summary"]["inconsistent_columns"]
     assert any(issue["issue_type"] == "duplicates" for issue in issues["issues"])
+    assert all("severity_score" in issue for issue in issues["issues"])
+    scores = [item["severity_score"] for item in issues["prioritized_issues"]]
+    assert scores == sorted(scores, reverse=True)
 
 
 def test_issue_detection_without_selected_path_uses_profile_only() -> None:

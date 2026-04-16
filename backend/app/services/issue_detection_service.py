@@ -78,12 +78,20 @@ def _build_issue_list(
     inconsistent_columns: list[str],
 ) -> list[dict]:
     issues: list[dict] = []
+    severity_score = {
+        "none": 0,
+        "low": 1,
+        "moderate": 2,
+        "high": 3,
+        "critical": 4,
+    }
 
     if missing_severity in {"moderate", "high"}:
         issues.append(
             {
                 "issue_type": "missing_data",
                 "severity": missing_severity,
+                "severity_score": severity_score[missing_severity],
                 "recommended_action": "Define column-level imputation and null-handling strategy.",
             }
         )
@@ -93,6 +101,7 @@ def _build_issue_list(
             {
                 "issue_type": "duplicates",
                 "severity": duplicate_severity,
+                "severity_score": severity_score[duplicate_severity],
                 "recommended_action": "Deduplicate rows before train/validation split.",
             }
         )
@@ -102,15 +111,18 @@ def _build_issue_list(
             {
                 "issue_type": "outliers",
                 "severity": outlier_severity,
+                "severity_score": severity_score[outlier_severity],
                 "recommended_action": "Review outlier-heavy columns and consider robust scaling or capping.",
             }
         )
 
     if inconsistent_columns:
+        inconsistency_severity = "high" if len(inconsistent_columns) >= 3 else "moderate"
         issues.append(
             {
                 "issue_type": "type_inconsistencies",
-                "severity": "moderate",
+                "severity": inconsistency_severity,
+                "severity_score": severity_score[inconsistency_severity],
                 "recommended_action": "Normalize mixed-type columns before feature engineering.",
                 "affected_columns": inconsistent_columns,
             }
@@ -146,6 +158,11 @@ def _run_issue_detection(profile_output: dict, ingestion_output: dict | None) ->
         outlier_severity=outlier_severity,
         inconsistent_columns=inconsistent_columns,
     )
+    prioritized_issues = sorted(
+        issues,
+        key=lambda issue: issue.get("severity_score", 0),
+        reverse=True,
+    )
 
     return {
         "missing_data": missing_severity,
@@ -153,6 +170,7 @@ def _run_issue_detection(profile_output: dict, ingestion_output: dict | None) ->
         "outliers": outlier_severity,
         "type_inconsistencies": "detected" if inconsistent_columns else "none_detected",
         "issues": issues,
+        "prioritized_issues": prioritized_issues,
         "summary": {
             "duplicate_rows": duplicate_rows,
             "outlier_cells": outlier_cells,
