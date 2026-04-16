@@ -28,6 +28,15 @@
   - `delimiter`
 - Added ingestion tests for metadata extraction, `train.csv` primary-file preference, and simulated ingestion metadata output.
 - Verified expanded backend test suite passes (`6 passed`).
+- Began Day 5 profiling implementation with real computed stats from selected CSV.
+- Replaced profiling stub with actual outputs:
+  - row/column counts
+  - column name list
+  - type classification (`numerical`, `categorical`, `boolean`)
+  - missing-value summaries
+  - numeric min/max/mean/median summaries
+- Added profiling tests for both real CSV profiling and simulated fallback path.
+- Verified expanded backend test suite passes (`8 passed`).
 
 ## Next Planned Work
-- Complete remaining Day 4 robustness checks and then start Day 5 profiling implementation with real computed stats.
+- Continue Day 5/6 profiling polish and then move into Day 7 issue-detection improvements.
