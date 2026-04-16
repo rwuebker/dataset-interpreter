@@ -20,11 +20,13 @@ env/
 backend/.venv/
 
 # Env files / secrets
+.env/
 .env
 .env.*
 !.env.example
 backend/.env
 backend/.env.*
+!backend/.env.example
 
 # Build / package artifacts
 build/

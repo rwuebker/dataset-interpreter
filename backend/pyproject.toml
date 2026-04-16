@@ -5,12 +5,13 @@ description = ""
 authors = [
     {name = "Rick Wuebker",email = "rlwuebker@gmail.com"}
 ]
-requires-python = "^3.10"
+requires-python = "^3.11"
 dependencies = [
     "fastapi",
     "uvicorn",
     "pandas",
     "numpy",
+    "kaggle (>=2.0.1,<3.0.0)",
 ]
 
 
@@ -20,6 +21,10 @@ build-backend = "poetry.core.masonry.api"
 
 [dependency-groups]
 dev = [
-    "pytest (>=9.0.3,<10.0.0)",
+    "pytest (>=8.4.2,<9.0.0)",
     "httpx (>=0.28.1,<0.29.0)"
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+addopts = "-p no:capture"
