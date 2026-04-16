@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, status
 
 from app.schemas.dataset import CreateJobRequest, DatasetSourceType
@@ -6,6 +8,7 @@ from app.services.job_orchestrator import run_job
 from app.stores.job_store import job_store
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -31,6 +34,7 @@ def create_job(payload: CreateJobRequest, background_tasks: BackgroundTasks) -> 
 
     job = job_store.create(JobRecord())
     background_tasks.add_task(run_job, job.job_id, payload.kaggle)
+    logger.info("Created job %s for Kaggle competition '%s'", job.job_id, payload.kaggle.competition)
 
     return CreateJobResponse(job_id=job.job_id, status=job.status)
 
@@ -43,6 +47,7 @@ def create_job(payload: CreateJobRequest, background_tasks: BackgroundTasks) -> 
 def get_job(job_id: str) -> JobResponse:
     job = job_store.get(job_id)
     if job is None:
+        logger.warning("Requested unknown job id: %s", job_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
     return JobResponse(**job.model_dump())

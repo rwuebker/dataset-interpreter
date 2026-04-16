@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import random
 from datetime import datetime, timezone
 
@@ -19,6 +20,7 @@ _STAGE_PROGRESS = {
     JobStage.ISSUE_DETECTION: 75,
     JobStage.INTERPRETATION: 90,
 }
+logger = logging.getLogger(__name__)
 
 
 def _utc_now_iso() -> str:
@@ -30,6 +32,7 @@ def _maybe_simulate_failure(stage: JobStage) -> None:
         return
 
     if random.random() < settings.simulate_job_failure_probability:
+        logger.warning("Simulating failure at stage '%s'", stage.value)
         raise RuntimeError(f"Simulated failure at stage '{stage.value}'.")
 
 
@@ -37,6 +40,7 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
     stage_history: list[dict] = []
 
     def mark_stage_started(stage: JobStage) -> None:
+        logger.info("Job %s stage started: %s", job_id, stage.value)
         stage_history.append({"stage": stage.value, "status": "started", "timestamp": _utc_now_iso()})
         job_store.update(
             job_id,
@@ -45,9 +49,11 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
         )
 
     def mark_stage_completed(stage: JobStage) -> None:
+        logger.info("Job %s stage completed: %s", job_id, stage.value)
         stage_history.append({"stage": stage.value, "status": "completed", "timestamp": _utc_now_iso()})
 
     try:
+        logger.info("Job %s started for competition '%s'", job_id, kaggle_input.competition)
         job_store.update(
             job_id,
             status=JobStatus.RUNNING,
@@ -97,7 +103,9 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
                 },
             },
         )
+        logger.info("Job %s completed successfully", job_id)
     except Exception as exc:  # pragma: no cover - protective fallback for background tasks
+        logger.exception("Job %s failed: %s", job_id, exc)
         stage_history.append({"stage": "job", "status": "failed", "timestamp": _utc_now_iso()})
         job_store.update(
             job_id,

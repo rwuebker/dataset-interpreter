@@ -79,6 +79,12 @@
   - wired cleaning result artifact metadata into final job payload under `cleaned_dataset`
   - added cleaning service tests and updated job API test coverage
 - Verified expanded backend test suite passes (`16 passed`).
+- Completed Day 13 backend polish:
+  - added basic structured logging configuration
+  - added stage-level and job-level orchestration logs
+  - added route-level logging for job creation and unknown job lookups
+  - documented Render backend deployment configuration and required environment variables
+- Re-verified backend test suite remains green (`16 passed`).
 
 ## Next Planned Work
-- Move into Day 13 polish (response consistency, logging improvements, and deployment readiness cleanup).
+- Day 14 finalization: final cleanup pass, push latest commits, and run final demo-flow validation.
