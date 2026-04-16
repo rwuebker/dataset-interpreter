@@ -35,8 +35,12 @@
   - type classification (`numerical`, `categorical`, `boolean`)
   - missing-value summaries
   - numeric min/max/mean/median summaries
+- Completed Day 6 profiling enhancements with additional metrics:
+  - per-column cardinality (`unique_count`, `unique_percent`)
+  - numeric distribution snapshots (`p10`, `p25`, `p50`, `p75`, `p90`, `std`)
+  - top values for each column (up to 5 entries)
 - Added profiling tests for both real CSV profiling and simulated fallback path.
 - Verified expanded backend test suite passes (`8 passed`).
 
 ## Next Planned Work
-- Continue Day 5/6 profiling polish and then move into Day 7 issue-detection improvements.
+- Start Day 7 issue-detection implementation with real missingness/duplicates/outlier checks.

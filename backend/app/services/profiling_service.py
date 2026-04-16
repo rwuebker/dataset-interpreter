@@ -66,6 +66,61 @@ def _build_numeric_summary(df: pd.DataFrame) -> dict:
     return summary
 
 
+def _build_cardinality(df: pd.DataFrame) -> list[dict]:
+    cardinality = []
+    row_count = len(df)
+    for column_name in df.columns:
+        unique_count = int(df[column_name].nunique(dropna=True))
+        unique_percent = round((unique_count / row_count) * 100, 4) if row_count else 0.0
+        cardinality.append(
+            {
+                "column": str(column_name),
+                "unique_count": unique_count,
+                "unique_percent": unique_percent,
+            }
+        )
+    return cardinality
+
+
+def _build_numeric_distributions(df: pd.DataFrame) -> dict:
+    distributions: dict[str, dict] = {}
+    numeric_df = df.select_dtypes(include=["number"])
+
+    for column_name in numeric_df.columns:
+        series = numeric_df[column_name].dropna()
+        if series.empty:
+            distributions[str(column_name)] = {
+                "p10": None,
+                "p25": None,
+                "p50": None,
+                "p75": None,
+                "p90": None,
+                "std": None,
+            }
+            continue
+
+        distributions[str(column_name)] = {
+            "p10": float(series.quantile(0.10)),
+            "p25": float(series.quantile(0.25)),
+            "p50": float(series.quantile(0.50)),
+            "p75": float(series.quantile(0.75)),
+            "p90": float(series.quantile(0.90)),
+            "std": float(series.std()) if len(series) > 1 else 0.0,
+        }
+
+    return distributions
+
+
+def _build_top_values(df: pd.DataFrame) -> dict:
+    top_values: dict[str, list[dict]] = {}
+    for column_name in df.columns:
+        value_counts = df[column_name].astype("string").fillna("<NA>").value_counts(dropna=False).head(5)
+        top_values[str(column_name)] = [
+            {"value": str(index), "count": int(count)} for index, count in value_counts.items()
+        ]
+    return top_values
+
+
 def _simulate_profile_from_ingestion(ingestion_output: dict) -> dict:
     metadata = ingestion_output.get("dataset_metadata", {})
     column_names = metadata.get("column_names", [])
@@ -91,6 +146,12 @@ def _simulate_profile_from_ingestion(ingestion_output: dict) -> dict:
             ],
         },
         "numeric_summary": {},
+        "cardinality": [
+            {"column": column_name, "unique_count": 0, "unique_percent": 0.0}
+            for column_name in column_names
+        ],
+        "numeric_distributions": {},
+        "top_values": {},
         "note": "Simulated profiling (selected_file_path unavailable).",
         "ingestion_ref": ingestion_output.get("selected_file"),
     }
@@ -122,6 +183,9 @@ def _run_real_profiling(ingestion_output: dict) -> dict:
         "column_types": _classify_columns(df),
         "missing_values": _build_missing_values(df),
         "numeric_summary": _build_numeric_summary(df),
+        "cardinality": _build_cardinality(df),
+        "numeric_distributions": _build_numeric_distributions(df),
+        "top_values": _build_top_values(df),
         "note": "Profile generated from selected CSV.",
         "ingestion_ref": ingestion_output.get("selected_file"),
     }

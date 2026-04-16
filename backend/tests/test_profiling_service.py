@@ -24,6 +24,9 @@ def test_run_profiling_reads_real_csv_metadata(tmp_path: Path) -> None:
 
     missing_by_column = {item["column"]: item for item in profile["missing_values"]["by_column"]}
     assert missing_by_column["income"]["missing_count"] == 1
+    assert "age" in profile["numeric_distributions"]
+    assert "city" in profile["top_values"]
+    assert any(item["column"] == "city" for item in profile["cardinality"])
 
 
 def test_run_profiling_falls_back_to_simulated_without_selected_path() -> None:
@@ -41,4 +44,6 @@ def test_run_profiling_falls_back_to_simulated_without_selected_path() -> None:
     assert profile["rows"] == 10
     assert profile["columns"] == 2
     assert profile["column_names"] == ["f1", "f2"]
+    assert "cardinality" in profile
+    assert "numeric_distributions" in profile
     assert profile["note"].startswith("Simulated profiling")
