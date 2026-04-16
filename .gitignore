@@ -1,0 +1,46 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+backend/.venv/
+
+# Env files / secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
+# Build / package artifacts
+build/
+dist/
+*.log
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node / frontend
+node_modules/
+.next/
+out/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
