@@ -21,7 +21,13 @@
 - Added Kaggle dependency and aligned Python requirement to `^3.11` for SDK compatibility.
 - Resolved local pytest instability by disabling capture plugin in config and verified tests pass.
 - Ran live Kaggle ingestion smoke test; confirmed current token returns `401 Unauthorized` for competition download.
+- Implemented ingestion metadata extraction from selected CSV:
+  - `row_count`
+  - `column_count`
+  - `column_names`
+  - `delimiter`
+- Added ingestion tests for metadata extraction, `train.csv` primary-file preference, and simulated ingestion metadata output.
+- Verified expanded backend test suite passes (`6 passed`).
 
 ## Next Planned Work
-- Complete Day 4 ingestion robustness: metadata extraction (rows, columns, column names) and cleaner ingestion errors.
-- Add ingestion-focused tests for metadata and primary-file selection behavior.
+- Complete remaining Day 4 robustness checks and then start Day 5 profiling implementation with real computed stats.

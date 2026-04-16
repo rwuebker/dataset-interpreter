@@ -1,7 +1,10 @@
 import asyncio
+import csv
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+
+import pandas as pd
 
 from app.clients.kaggle_client import KaggleClient
 from app.core.config import settings
@@ -24,10 +27,61 @@ def _simulate_ingestion(dataset: KaggleDatasetInput) -> dict:
         "source": "kaggle",
         "competition": dataset.competition,
         "selected_file": "train.csv",
+        "dataset_metadata": {
+            "row_count": 1000,
+            "column_count": 12,
+            "column_names": [
+                "feature_1",
+                "feature_2",
+                "feature_3",
+                "feature_4",
+                "feature_5",
+            ],
+            "delimiter": ",",
+        },
         "note": (
             "Simulated ingestion (real Kaggle download is disabled). "
             "Set ENABLE_REAL_KAGGLE_INGESTION=true and provide Kaggle credentials to enable."
         ),
+    }
+
+
+def _detect_delimiter(csv_path: Path) -> str:
+    sample = csv_path.read_text(encoding="utf-8", errors="replace")[:8192]
+    if not sample.strip():
+        return ","
+
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=[",", ";", "\t", "|"])
+        return dialect.delimiter
+    except csv.Error:
+        return ","
+
+
+def _collect_dataset_metadata(csv_path: Path) -> dict:
+    delimiter = _detect_delimiter(csv_path)
+    row_count = 0
+    column_names: list[str] = []
+
+    try:
+        reader = pd.read_csv(csv_path, sep=delimiter, chunksize=100000, low_memory=False)
+        for chunk in reader:
+            if not column_names:
+                column_names = [str(column) for column in chunk.columns]
+            row_count += len(chunk)
+    except pd.errors.EmptyDataError:
+        column_names = []
+        row_count = 0
+    except Exception as exc:
+        raise RuntimeError(
+            f"Failed reading selected CSV '{csv_path.name}' for metadata extraction."
+        ) from exc
+
+    return {
+        "row_count": row_count,
+        "column_count": len(column_names),
+        "column_names": column_names,
+        "delimiter": delimiter,
     }
 
 
@@ -49,6 +103,7 @@ def _run_real_ingestion(dataset: KaggleDatasetInput) -> dict:
         raise RuntimeError(
             f"No CSV files were found after extracting competition '{dataset.competition}'."
         )
+    dataset_metadata = _collect_dataset_metadata(selected_csv)
 
     return {
         "source": "kaggle",
@@ -58,6 +113,7 @@ def _run_real_ingestion(dataset: KaggleDatasetInput) -> dict:
         "zip_path": str(zip_path),
         "extract_path": str(extracted_dir),
         "csv_file_count": len(csv_files),
+        "dataset_metadata": dataset_metadata,
         "note": "Real Kaggle ingestion completed.",
     }
 
