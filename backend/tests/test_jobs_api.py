@@ -47,6 +47,7 @@ def test_create_job_kaggle_and_complete_pipeline() -> None:
     assert "dataset_profile" in final_payload["result"]
     assert "detected_issues" in final_payload["result"]
     assert "ai_interpretation" in final_payload["result"]
+    assert "cleaned_dataset" in final_payload["result"]
 
 
 def test_create_job_csv_upload_is_not_implemented_yet() -> None:

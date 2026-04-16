@@ -73,6 +73,12 @@
   - added backward-compatible aliases (`key_concerns`, `recommended_next_steps`) for existing consumers
   - improved normalization and tests to keep output structure stable even when model returns text fields
 - Re-verified backend test suite remains green (`14 passed`).
+- Completed Day 12 optional cleaning output:
+  - added `cleaning_service.py` for basic imputation, duplicate removal, and type-fix attempts
+  - added optional cleaning toggle (`ENABLE_CLEANING_OUTPUT`)
+  - wired cleaning result artifact metadata into final job payload under `cleaned_dataset`
+  - added cleaning service tests and updated job API test coverage
+- Verified expanded backend test suite passes (`16 passed`).
 
 ## Next Planned Work
-- Start Day 12 optional cleaned dataset artifact generation and return artifact metadata in job output.
+- Move into Day 13 polish (response consistency, logging improvements, and deployment readiness cleanup).

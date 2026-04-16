@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.schemas.dataset import KaggleDatasetInput
 from app.schemas.job import JobStage, JobStatus
 from app.services.ai_interpretation_service import run_ai_interpretation
+from app.services.cleaning_service import run_optional_cleaning
 from app.services.ingestion_service import run_ingestion
 from app.services.issue_detection_service import run_issue_detection
 from app.services.profiling_service import run_profiling
@@ -74,6 +75,10 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
         interpretation_output = await run_ai_interpretation(profile_output, issues_output)
         mark_stage_completed(JobStage.INTERPRETATION)
 
+        cleaning_output = {"status": "skipped", "reason": "Cleaning output disabled."}
+        if settings.enable_cleaning_output:
+            cleaning_output = await asyncio.to_thread(run_optional_cleaning, ingestion_output)
+
         job_store.update(
             job_id,
             status=JobStatus.COMPLETED,
@@ -82,6 +87,7 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
                 "dataset_profile": profile_output,
                 "detected_issues": issues_output,
                 "ai_interpretation": interpretation_output,
+                "cleaned_dataset": cleaning_output,
                 "pipeline_summary": {
                     "source": ingestion_output.get("source"),
                     "competition": ingestion_output.get("competition"),
