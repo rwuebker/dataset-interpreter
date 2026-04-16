@@ -85,6 +85,18 @@
   - added route-level logging for job creation and unknown job lookups
   - documented Render backend deployment configuration and required environment variables
 - Re-verified backend test suite remains green (`16 passed`).
+- Completed Day 14 finalization pass:
+  - added demo runbook with copy/paste commands and talking flow
+  - executed final end-to-end API smoke test with demo-safe settings:
+    - `ENABLE_REAL_KAGGLE_INGESTION=false`
+    - `ENABLE_CLEANING_OUTPUT=true`
+    - `SIMULATE_JOB_FAILURE_PROBABILITY=0.0`
+  - verified terminal job output includes:
+    - profile
+    - prioritized issues
+    - AI interpretation
+    - cleaned dataset artifact metadata (or explicit skip reason)
+- Re-verified backend test suite remains green (`16 passed`).
 
 ## Next Planned Work
-- Day 14 finalization: final cleanup pass, push latest commits, and run final demo-flow validation.
+- Push final sequence of daily commits and proceed to frontend project-page integration under `rwuebker.github.io/projects`.
