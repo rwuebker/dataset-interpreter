@@ -43,7 +43,7 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
             progress=_STAGE_PROGRESS[JobStage.ISSUE_DETECTION],
         )
         await asyncio.sleep(settings.simulate_stage_delay_seconds)
-        issues_output = await run_issue_detection(profile_output)
+        issues_output = await run_issue_detection(profile_output, ingestion_output)
 
         job_store.update(
             job_id,

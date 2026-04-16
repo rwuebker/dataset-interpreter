@@ -40,7 +40,14 @@
   - numeric distribution snapshots (`p10`, `p25`, `p50`, `p75`, `p90`, `std`)
   - top values for each column (up to 5 entries)
 - Added profiling tests for both real CSV profiling and simulated fallback path.
-- Verified expanded backend test suite passes (`8 passed`).
+- Implemented Day 7 issue detection with real dataset checks:
+  - missing-data severity
+  - duplicate-row detection
+  - basic IQR-based numeric outlier detection
+  - mixed-type inconsistency detection
+- Updated orchestrator to pass ingestion context into issue detection.
+- Added issue-detection tests for real CSV checks and profile-only fallback mode.
+- Verified expanded backend test suite passes (`10 passed`).
 
 ## Next Planned Work
-- Start Day 7 issue-detection implementation with real missingness/duplicates/outlier checks.
+- Continue Day 8 issue-detection refinement (ranking/prioritization) and then move into Day 9 integration polish.
