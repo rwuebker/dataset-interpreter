@@ -12,6 +12,7 @@ dependencies = [
     "pandas",
     "numpy",
     "kaggle (>=2.0.1,<3.0.0)",
+    "openai (>=2.32.0,<3.0.0)",
 ]
 
 
