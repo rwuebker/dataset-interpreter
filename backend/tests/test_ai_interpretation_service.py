@@ -34,6 +34,8 @@ def test_ai_interpretation_uses_fallback_when_disabled(monkeypatch) -> None:
     result = asyncio.run(interpretation_service.run_ai_interpretation(_sample_profile(), _sample_issues()))
 
     assert result["likely_ml_problem"] == "classification"
+    assert "key_risks" in result
+    assert "suggested_next_steps" in result
     assert "Fallback interpretation used" in result["note"]
 
 
@@ -49,8 +51,8 @@ def test_ai_interpretation_uses_llm_client_when_enabled(monkeypatch) -> None:
             return {
                 "dataset_representation": "Customer churn dataset",
                 "likely_ml_problem": "classification",
-                "key_concerns": ["Missing values in tenure"],
-                "recommended_next_steps": ["Impute tenure then baseline model"],
+                "key_risks": ["Missing values in tenure"],
+                "suggested_next_steps": ["Impute tenure then baseline model"],
             }
 
     monkeypatch.setattr(interpretation_service, "LLMClient", FakeLLMClient)
@@ -64,6 +66,8 @@ def test_ai_interpretation_uses_llm_client_when_enabled(monkeypatch) -> None:
 
     assert result["dataset_representation"] == "Customer churn dataset"
     assert result["likely_ml_problem"] == "classification"
+    assert result["key_risks"] == ["Missing values in tenure"]
+    assert result["suggested_next_steps"] == ["Impute tenure then baseline model"]
     assert result["note"].startswith("OpenAI interpretation")
 
 
@@ -76,8 +80,8 @@ def test_ai_interpretation_coerces_string_lists_from_llm(monkeypatch) -> None:
             return {
                 "dataset_representation": "Marketing campaign table",
                 "likely_ml_problem": "classification",
-                "key_concerns": "Missing values in age; class imbalance",
-                "recommended_next_steps": "- Impute age\n- Balance classes",
+                "key_risks": "Missing values in age; class imbalance",
+                "suggested_next_steps": "- Impute age\n- Balance classes",
             }
 
     monkeypatch.setattr(interpretation_service, "LLMClient", FakeLLMClient)
@@ -89,8 +93,8 @@ def test_ai_interpretation_coerces_string_lists_from_llm(monkeypatch) -> None:
 
     result = asyncio.run(interpretation_service.run_ai_interpretation(_sample_profile(), _sample_issues()))
 
-    assert result["key_concerns"] == ["Missing values in age", "class imbalance"]
-    assert result["recommended_next_steps"] == ["Impute age", "Balance classes"]
+    assert result["key_risks"] == ["Missing values in age", "class imbalance"]
+    assert result["suggested_next_steps"] == ["Impute age", "Balance classes"]
 
 
 def test_ai_interpretation_falls_back_after_llm_error(monkeypatch) -> None:

@@ -68,6 +68,11 @@
   - fallback after LLM error
 - Ran end-to-end runtime smoke test through interpretation stage (with simulated ingestion): job completed successfully.
 - Verified expanded backend test suite passes (`14 passed`).
+- Completed Day 11 interpretation refinement:
+  - tightened LLM response contract around explicit `key_risks` and `suggested_next_steps`
+  - added backward-compatible aliases (`key_concerns`, `recommended_next_steps`) for existing consumers
+  - improved normalization and tests to keep output structure stable even when model returns text fields
+- Re-verified backend test suite remains green (`14 passed`).
 
 ## Next Planned Work
-- Continue Day 11 interpretation refinement and then Day 12 optional cleaned dataset output.
+- Start Day 12 optional cleaned dataset artifact generation and return artifact metadata in job output.

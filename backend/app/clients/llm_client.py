@@ -12,8 +12,9 @@ class LLMClient:
     def generate_dataset_interpretation(self, prompt_payload: dict[str, Any]) -> dict[str, Any]:
         system_prompt = (
             "You are a data quality analyst. Return valid JSON only with keys: "
-            "dataset_representation, likely_ml_problem, key_concerns, recommended_next_steps. "
-            "Ground claims in provided computed statistics and avoid generic advice."
+            "dataset_representation, likely_ml_problem, key_risks, suggested_next_steps. "
+            "Ground claims in provided computed statistics and avoid generic advice. "
+            "Use arrays of concise strings for key_risks and suggested_next_steps."
         )
 
         user_prompt = json.dumps(prompt_payload, ensure_ascii=True)

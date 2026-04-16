@@ -6,19 +6,25 @@ from app.core.config import settings
 
 
 def _fallback_interpretation(profile_output: dict, issues_output: dict, note: str) -> dict:
+    key_risks = [
+        f"Missing data severity is '{issues_output.get('missing_data', 'unknown')}'.",
+        f"Duplicate severity is '{issues_output.get('duplicates', 'unknown')}'.",
+        "Target definition and metric selection may be unclear.",
+    ]
+    suggested_next_steps = [
+        "Review highest-severity issues first.",
+        "Finalize train/validation split and leakage checks.",
+        "Train a baseline model using cleaned feature set.",
+    ]
+
     return {
         "dataset_representation": "Likely a supervised tabular prediction dataset.",
         "likely_ml_problem": "classification",
-        "key_concerns": [
-            f"Missing data severity is '{issues_output.get('missing_data', 'unknown')}'.",
-            f"Duplicate severity is '{issues_output.get('duplicates', 'unknown')}'.",
-            "Validate target definition and baseline metric before modeling.",
-        ],
-        "recommended_next_steps": [
-            "Review highest-severity issues first.",
-            "Finalize train/validation split and leakage checks.",
-            "Train a baseline model using cleaned feature set.",
-        ],
+        "key_risks": key_risks,
+        "suggested_next_steps": suggested_next_steps,
+        # Backward-compatible aliases for existing consumers.
+        "key_concerns": key_risks,
+        "recommended_next_steps": suggested_next_steps,
         "grounding": {
             "rows": profile_output.get("rows"),
             "columns": profile_output.get("columns"),
@@ -40,20 +46,25 @@ def _normalize_llm_output(parsed: dict[str, Any], profile_output: dict, issues_o
                 return cleaned
         return [default_message]
 
-    key_concerns = _coerce_list(
-        parsed.get("key_concerns"),
+    key_risks = _coerce_list(
+        parsed.get("key_risks") if parsed.get("key_risks") is not None else parsed.get("key_concerns"),
         "LLM response did not include structured key concerns.",
     )
-    recommended_next_steps = _coerce_list(
-        parsed.get("recommended_next_steps"),
+    suggested_next_steps = _coerce_list(
+        parsed.get("suggested_next_steps")
+        if parsed.get("suggested_next_steps") is not None
+        else parsed.get("recommended_next_steps"),
         "Define immediate cleanup and baseline-model plan.",
     )
 
     return {
         "dataset_representation": str(parsed.get("dataset_representation", "Dataset representation not provided.")),
         "likely_ml_problem": str(parsed.get("likely_ml_problem", "unknown")),
-        "key_concerns": [str(item) for item in key_concerns][:6],
-        "recommended_next_steps": [str(item) for item in recommended_next_steps][:6],
+        "key_risks": [str(item) for item in key_risks][:6],
+        "suggested_next_steps": [str(item) for item in suggested_next_steps][:6],
+        # Backward-compatible aliases for existing consumers.
+        "key_concerns": [str(item) for item in key_risks][:6],
+        "recommended_next_steps": [str(item) for item in suggested_next_steps][:6],
         "grounding": {
             "rows": profile_output.get("rows"),
             "columns": profile_output.get("columns"),
