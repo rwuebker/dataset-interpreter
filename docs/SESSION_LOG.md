@@ -98,5 +98,24 @@
     - cleaned dataset artifact metadata (or explicit skip reason)
 - Re-verified backend test suite remains green (`16 passed`).
 
+## 2026-04-18
+- Implemented public portfolio integration for Dataset Interpreter in `rwuebker.github.io`:
+  - added `/projects` listing entry and project detail page
+  - added `/projects/dataset-interpreter/demo` route
+- Chose secure localhost-only demo access model to protect paid API usage:
+  - demo interactions are blocked on non-localhost hosts
+  - full interactive flow is enabled on localhost for interviews/screenshares
+- Added explicit API key documentation on the project page:
+  - required keys (`OPENAI_API_KEY`, `KAGGLE_USERNAME`, `KAGGLE_KEY`)
+  - recommended runtime toggles
+  - local file path for gitignored secrets (`.env/backend.env`)
+- Updated repository README to include:
+  - clear API key checklist
+  - copy/paste `backend.env` template
+  - explicit warning not to commit secrets
+
 ## Next Planned Work
-- Push final sequence of daily commits and proceed to frontend project-page integration under `rwuebker.github.io/projects`.
+- Continue frontend implementation from Day 1-Day 2 docs:
+  - connect project demo page to live backend job create/poll flow
+  - add clean status/progress rendering for each pipeline stage
+- Keep localhost-only access behavior for interactive flows while public pages remain informational.
