@@ -120,6 +120,9 @@
   - documented frontend env override via `NEXT_PUBLIC_DATASET_INTERPRETER_API_URL`
   - refined demo input UX to request Kaggle competition slug explicitly (URL segment after `/competitions/`)
 - Clarified local run docs to use explicit backend port `8011` to avoid accidental cross-project API collisions on `8000`.
+- Added self-contained in-repo frontend demo (`frontend/index.html`) so users can run the project without external frontend dependencies.
+- Added backend localhost CORS middleware for clean browser access from local frontend servers.
+- Rewrote README local run flow to use repo-relative paths only (no machine-specific absolute paths).
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

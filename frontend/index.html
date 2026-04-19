@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dataset Interpreter Demo</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #1f2937 0%, #0f172a 45%, #020617 100%);
+        color: #e5e7eb;
+      }
+      .wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 36px 20px 56px;
+      }
+      .card {
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 14px;
+        padding: 18px;
+        backdrop-filter: blur(4px);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 28px;
+      }
+      p {
+        margin: 6px 0;
+        color: #cbd5e1;
+      }
+      .mono {
+        font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        margin-top: 14px;
+      }
+      input,
+      button {
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        padding: 10px 12px;
+        font-size: 14px;
+      }
+      input {
+        background: rgba(2, 6, 23, 0.8);
+        color: #e5e7eb;
+      }
+      button {
+        cursor: pointer;
+        color: #0f172a;
+        background: #f8fafc;
+        border-color: #f8fafc;
+        font-weight: 600;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.65;
+      }
+      .muted {
+        color: #94a3b8;
+        font-size: 13px;
+      }
+      .error {
+        color: #fca5a5;
+      }
+      .grid {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .stat {
+        background: rgba(2, 6, 23, 0.65);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .stat .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+      }
+      .stat .value {
+        margin-top: 6px;
+        font-size: 14px;
+      }
+      pre {
+        margin: 12px 0 0;
+        background: rgba(2, 6, 23, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 10px;
+        padding: 12px;
+        overflow: auto;
+        max-height: 480px;
+        font-size: 12px;
+      }
+      @media (max-width: 760px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <section class="card">
+        <h1>Dataset Interpreter Demo</h1>
+        <p>
+          API Base:
+          <span id="apiBaseText" class="mono"></span>
+        </p>
+        <p class="muted">
+          Enter the Kaggle competition slug (or full URL). Example:
+          <span class="mono">titanic</span>
+          or
+          <span class="mono">https://www.kaggle.com/competitions/titanic/overview</span>.
+        </p>
+
+        <form id="createForm" class="row">
+          <input
+            id="competitionInput"
+            type="text"
+            value="titanic"
+            placeholder="titanic"
+            autocomplete="off"
+          />
+          <button id="createButton" type="submit">Create Job</button>
+        </form>
+
+        <p id="errorText" class="error"></p>
+      </section>
+
+      <section class="card" id="resultCard" style="margin-top: 14px; display: none">
+        <div class="grid">
+          <div class="stat">
+            <div class="label">Status</div>
+            <div class="value" id="statusValue">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Stage</div>
+            <div class="value" id="stageValue">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Progress</div>
+            <div class="value" id="progressValue">-</div>
+          </div>
+          <div class="stat">
+            <div class="label">Job ID</div>
+            <div class="value mono" id="jobIdValue">-</div>
+          </div>
+        </div>
+        <pre id="jobJson"></pre>
+      </section>
+    </div>
+
+    <script>
+      const defaultApiBase = "http://127.0.0.1:8011";
+      const configuredApiBase = window.localStorage.getItem("datasetInterpreterApiBase");
+      const apiBase = (configuredApiBase || defaultApiBase).replace(/\/+$/, "");
+
+      const apiBaseText = document.getElementById("apiBaseText");
+      const createForm = document.getElementById("createForm");
+      const competitionInput = document.getElementById("competitionInput");
+      const createButton = document.getElementById("createButton");
+      const errorText = document.getElementById("errorText");
+      const resultCard = document.getElementById("resultCard");
+      const statusValue = document.getElementById("statusValue");
+      const stageValue = document.getElementById("stageValue");
+      const progressValue = document.getElementById("progressValue");
+      const jobIdValue = document.getElementById("jobIdValue");
+      const jobJson = document.getElementById("jobJson");
+
+      let pollTimer = null;
+
+      function normalizeCompetitionInput(rawValue) {
+        const trimmed = (rawValue || "").trim();
+        if (!trimmed) {
+          return "";
+        }
+
+        const marker = "/competitions/";
+        const markerIndex = trimmed.indexOf(marker);
+        if (markerIndex === -1) {
+          return trimmed;
+        }
+
+        const afterMarker = trimmed.slice(markerIndex + marker.length);
+        const slug = afterMarker.split(/[/?#]/, 1)[0];
+        return slug || trimmed;
+      }
+
+      function setError(message) {
+        errorText.textContent = message || "";
+      }
+
+      function renderJob(job) {
+        resultCard.style.display = "block";
+        statusValue.textContent = job.status || "-";
+        stageValue.textContent = job.current_stage || "-";
+        progressValue.textContent = `${job.progress ?? 0}%`;
+        jobIdValue.textContent = job.job_id || "-";
+        jobJson.textContent = JSON.stringify(job, null, 2);
+      }
+
+      async function fetchJob(jobId) {
+        const response = await fetch(`${apiBase}/jobs/${jobId}`);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch job status (${response.status})`);
+        }
+
+        const payload = await response.json();
+        renderJob(payload);
+
+        if (payload.status === "completed" || payload.status === "failed") {
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+        }
+      }
+
+      async function createJob(event) {
+        event.preventDefault();
+        setError("");
+
+        const competitionSlug = normalizeCompetitionInput(competitionInput.value);
+        if (!competitionSlug) {
+          setError("Please enter a Kaggle competition slug or URL.");
+          return;
+        }
+
+        createButton.disabled = true;
+        createButton.textContent = "Creating...";
+
+        try {
+          const response = await fetch(`${apiBase}/jobs/create`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              source_type: "kaggle",
+              kaggle: { competition: competitionSlug },
+            }),
+          });
+
+          if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Job create failed (${response.status}): ${text}`);
+          }
+
+          const payload = await response.json();
+
+          if (pollTimer) {
+            clearInterval(pollTimer);
+          }
+
+          await fetchJob(payload.job_id);
+          pollTimer = setInterval(() => {
+            void fetchJob(payload.job_id).catch((err) => {
+              setError(err instanceof Error ? err.message : "Job polling failed.");
+            });
+          }, 1500);
+        } catch (error) {
+          setError(error instanceof Error ? error.message : "Unknown error.");
+        } finally {
+          createButton.disabled = false;
+          createButton.textContent = "Create Job";
+        }
+      }
+
+      apiBaseText.textContent = apiBase;
+      createForm.addEventListener("submit", createJob);
+    </script>
+  </body>
+</html>
