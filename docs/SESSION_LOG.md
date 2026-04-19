@@ -123,6 +123,13 @@
 - Added self-contained in-repo frontend demo (`frontend/index.html`) so users can run the project without external frontend dependencies.
 - Added backend localhost CORS middleware for clean browser access from local frontend servers.
 - Rewrote README local run flow to use repo-relative paths only (no machine-specific absolute paths).
+- Implemented Kaggle raw-data cache per competition slug:
+  - download/extract raw data once
+  - reuse cached extracted CSVs for subsequent jobs on the same slug
+  - preserved per-job output isolation via `analysis_output_dir` for artifacts like cleaned datasets
+- Added tests covering:
+  - one-time download + cache reuse behavior
+  - cleaning output written to per-job output directory when cache-backed raw CSV is reused
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

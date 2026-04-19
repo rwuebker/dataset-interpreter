@@ -102,3 +102,24 @@ If cleaning is enabled, cleaned output is saved under:
 - `backend/data/raw/<competition_slug>/<timestamp>_<short_id>/cleaned`
 
 If `ENABLE_REAL_KAGGLE_INGESTION=false`, ingestion is simulated and no Kaggle files are downloaded.
+
+## Kaggle Download Caching
+
+Real Kaggle raw downloads are cached by competition slug so we do not repeatedly consume Kaggle download quota.
+
+- First time for a slug:
+  - download Kaggle zip once
+  - extract once
+- Later jobs for the same slug:
+  - skip download
+  - reuse cached extracted raw CSVs
+  - run profiling/issue detection/AI interpretation on cached raw data
+
+Cache location:
+
+- `backend/data/raw/<competition_slug>/raw_cache/download`
+- `backend/data/raw/<competition_slug>/raw_cache/extracted`
+
+Per-job outputs (for isolated artifacts like cleaning output) still use unique run folders:
+
+- `backend/data/raw/<competition_slug>/<timestamp>_<short_id>/`

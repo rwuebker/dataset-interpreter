@@ -68,7 +68,11 @@ def run_optional_cleaning(ingestion_output: dict) -> dict:
     df_cleaned = df.drop_duplicates().reset_index(drop=True)
     rows_after = int(df_cleaned.shape[0])
 
-    run_dir = selected_csv.parent.parent if len(selected_csv.parents) >= 2 else selected_csv.parent
+    analysis_output_dir = ingestion_output.get("analysis_output_dir")
+    if analysis_output_dir:
+        run_dir = ensure_dir(Path(str(analysis_output_dir)))
+    else:
+        run_dir = selected_csv.parent.parent if len(selected_csv.parents) >= 2 else selected_csv.parent
     cleaned_dir = ensure_dir(run_dir / "cleaned")
     cleaned_file_path = cleaned_dir / f"cleaned_{selected_csv.name}"
     df_cleaned.to_csv(cleaned_file_path, index=False)

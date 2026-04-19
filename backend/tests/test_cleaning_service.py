@@ -46,3 +46,25 @@ def test_run_optional_cleaning_skips_when_path_missing() -> None:
 
     assert result["status"] == "skipped"
     assert "selected_file_path" in result["reason"]
+
+
+def test_run_optional_cleaning_respects_analysis_output_dir(tmp_path: Path) -> None:
+    cache_root = tmp_path / "raw_cache"
+    extracted = cache_root / "extracted"
+    extracted.mkdir(parents=True, exist_ok=True)
+    csv_path = extracted / "train.csv"
+    csv_path.write_text("x,y\n1,2\n1,2\n", encoding="utf-8")
+
+    analysis_output_dir = tmp_path / "job_runs" / "run_123"
+    ingestion_output = {
+        "selected_file_path": str(csv_path),
+        "dataset_metadata": {"delimiter": ","},
+        "analysis_output_dir": str(analysis_output_dir),
+    }
+
+    result = run_optional_cleaning(ingestion_output)
+    cleaned_path = Path(result["cleaned_file_path"])
+
+    assert result["status"] == "completed"
+    assert cleaned_path.exists()
+    assert analysis_output_dir in cleaned_path.parents
