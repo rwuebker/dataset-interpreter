@@ -114,6 +114,13 @@
   - copy/paste `backend.env` template
   - explicit warning not to commit secrets
 
+## 2026-04-19
+- Improved localhost demo ergonomics:
+  - aligned Dataset Interpreter frontend default API base to `http://127.0.0.1:8011`
+  - documented frontend env override via `NEXT_PUBLIC_DATASET_INTERPRETER_API_URL`
+  - refined demo input UX to request Kaggle competition slug explicitly (URL segment after `/competitions/`)
+- Clarified local run docs to use explicit backend port `8011` to avoid accidental cross-project API collisions on `8000`.
+
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:
   - connect project demo page to live backend job create/poll flow

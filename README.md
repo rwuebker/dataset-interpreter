@@ -13,7 +13,7 @@ From `backend/`:
 
 ```bash
 poetry install
-poetry run uvicorn app.main:app --reload
+poetry run uvicorn app.main:app --reload --host 127.0.0.1 --port 8011
 ```
 
 ## API Keys and Env Setup
@@ -61,7 +61,7 @@ Load secrets before running backend:
 set -a
 source ../.env/backend.env
 set +a
-poetry run uvicorn app.main:app --reload
+poetry run uvicorn app.main:app --reload --host 127.0.0.1 --port 8011
 ```
 
 The backend exposes:
@@ -80,7 +80,7 @@ cd /Users/richardwuebker/Projects/workbench/dataset-interpreter/backend
 set -a
 source ../.env/backend.env
 set +a
-poetry run uvicorn app.main:app --reload
+poetry run uvicorn app.main:app --reload --host 127.0.0.1 --port 8011
 ```
 
 2. Start frontend:
@@ -92,4 +92,11 @@ npm run dev
 3. Open:
 ```text
 http://localhost:3000/projects/dataset-interpreter/demo
+```
+
+Optional frontend override (if needed):
+
+```bash
+# /Users/richardwuebker/Projects/workbench/rwuebker.github.io/.env.local
+NEXT_PUBLIC_DATASET_INTERPRETER_API_URL=http://127.0.0.1:8011
 ```
