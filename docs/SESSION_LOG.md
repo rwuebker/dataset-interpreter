@@ -131,6 +131,16 @@
   - one-time download + cache reuse behavior
   - cleaning output written to per-job output directory when cache-backed raw CSV is reused
 
+## 2026-04-20
+- Diagnosed Kaggle `401` root cause for current credentials:
+  - credential worked in `KAGGLE_API_TOKEN` access-token mode
+  - credential failed in legacy `KAGGLE_USERNAME` + `KAGGLE_KEY` mode
+- Updated backend Kaggle auth flow to support both modes:
+  - prefer access token when `KAGGLE_API_TOKEN` is set
+  - fallback to legacy username/key when token is not provided
+- Updated env documentation/template to include token-first setup.
+- Added ingestion test coverage for access-token-only mode.
+
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:
   - connect project demo page to live backend job create/poll flow

@@ -19,6 +19,7 @@ class Settings:
     enable_cleaning_output: bool
     kaggle_username: str | None
     kaggle_key: str | None
+    kaggle_api_token: str | None
     openai_api_key: str | None
     openai_model: str
 
@@ -32,6 +33,7 @@ settings = Settings(
     enable_cleaning_output=_as_bool(os.getenv("ENABLE_CLEANING_OUTPUT"), default=False),
     kaggle_username=os.getenv("KAGGLE_USERNAME"),
     kaggle_key=os.getenv("KAGGLE_KEY"),
+    kaggle_api_token=os.getenv("KAGGLE_API_TOKEN"),
     openai_api_key=os.getenv("OPENAI_API_KEY"),
     openai_model=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
 )

@@ -75,7 +75,11 @@ def _ensure_cached_competition_data(dataset: KaggleDatasetInput) -> dict:
         zip_path = _find_cached_zip(download_dir, dataset.competition)
         download_performed = False
         if zip_path is None:
-            kaggle_client = KaggleClient(username=settings.kaggle_username or "", key=settings.kaggle_key or "")
+            kaggle_client = KaggleClient(
+                username=settings.kaggle_username,
+                key=settings.kaggle_key,
+                api_token=settings.kaggle_api_token,
+            )
             zip_path = kaggle_client.download_competition_zip(dataset.competition, download_dir)
             download_performed = True
 
@@ -161,8 +165,12 @@ def _collect_dataset_metadata(csv_path: Path) -> dict:
 
 
 def _run_real_ingestion(dataset: KaggleDatasetInput) -> dict:
-    if not settings.kaggle_username or not settings.kaggle_key:
-        raise RuntimeError("Kaggle credentials are missing. Set KAGGLE_USERNAME and KAGGLE_KEY.")
+    has_access_token = bool(settings.kaggle_api_token)
+    has_legacy_keypair = bool(settings.kaggle_username and settings.kaggle_key)
+    if not has_access_token and not has_legacy_keypair:
+        raise RuntimeError(
+            "Kaggle credentials are missing. Set KAGGLE_API_TOKEN or KAGGLE_USERNAME and KAGGLE_KEY."
+        )
 
     run_dir = ensure_dir(_build_job_run_dir(dataset.competition))
     cache_details = _ensure_cached_competition_data(dataset)

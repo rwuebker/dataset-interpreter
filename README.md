@@ -21,8 +21,9 @@ Store secrets in a gitignored repo-level file:
 Required keys:
 
 - `OPENAI_API_KEY`: used for AI interpretation stage.
-- `KAGGLE_USERNAME`: Kaggle account username for dataset download.
-- `KAGGLE_KEY`: Kaggle API token paired with the username.
+- Kaggle auth (either option works):
+  - Preferred: `KAGGLE_API_TOKEN` (new Kaggle access token)
+  - Legacy fallback: `KAGGLE_USERNAME` + `KAGGLE_KEY`
 
 Recommended runtime toggles:
 
@@ -37,8 +38,10 @@ Template:
 mkdir -p .env
 cat > .env/backend.env <<'EOF'
 OPENAI_API_KEY=your_openai_api_key
-KAGGLE_USERNAME=your_kaggle_username
-KAGGLE_KEY=your_kaggle_key
+KAGGLE_API_TOKEN=your_kaggle_access_token
+# Legacy alternative:
+# KAGGLE_USERNAME=your_kaggle_username
+# KAGGLE_KEY=your_kaggle_key
 ENABLE_REAL_AI_INTERPRETATION=true
 ENABLE_REAL_KAGGLE_INGESTION=true
 ENABLE_CLEANING_OUTPUT=true

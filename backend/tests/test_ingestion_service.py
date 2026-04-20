@@ -55,9 +55,10 @@ def test_real_ingestion_downloads_once_and_reuses_cached_raw_data(tmp_path: Path
     class FakeKaggleClient:
         download_calls = 0
 
-        def __init__(self, username: str, key: str) -> None:
+        def __init__(self, username: str | None = None, key: str | None = None, api_token: str | None = None) -> None:
             self.username = username
             self.key = key
+            self.api_token = api_token
 
         def download_competition_zip(self, competition: str, destination: Path) -> Path:
             FakeKaggleClient.download_calls += 1
@@ -80,3 +81,36 @@ def test_real_ingestion_downloads_once_and_reuses_cached_raw_data(tmp_path: Path
     assert "reused cached raw data" in second["note"].lower()
     assert first["selected_file_path"] == second["selected_file_path"]
     assert first["analysis_output_dir"] != second["analysis_output_dir"]
+
+
+def test_real_ingestion_accepts_access_token_mode(tmp_path: Path, monkeypatch) -> None:
+    settings_override = replace(
+        ingestion_service.settings,
+        dataset_storage_root=tmp_path,
+        kaggle_username=None,
+        kaggle_key=None,
+        kaggle_api_token="demo-access-token",
+    )
+    monkeypatch.setattr(ingestion_service, "settings", settings_override)
+    monkeypatch.setattr(ingestion_service, "_COMPETITION_CACHE_LOCKS", {})
+
+    class FakeKaggleClient:
+        def __init__(self, username: str | None = None, key: str | None = None, api_token: str | None = None) -> None:
+            self.username = username
+            self.key = key
+            self.api_token = api_token
+
+        def download_competition_zip(self, competition: str, destination: Path) -> Path:
+            zip_path = destination / f"{competition}.zip"
+            with ZipFile(zip_path, "w") as archive:
+                archive.writestr("train.csv", "a,b\n1,2\n")
+            return zip_path
+
+    monkeypatch.setattr(ingestion_service, "KaggleClient", FakeKaggleClient)
+
+    payload = KaggleDatasetInput(competition="titanic")
+    result = ingestion_service._run_real_ingestion(payload)
+
+    assert result["source"] == "kaggle"
+    assert result["competition"] == "titanic"
+    assert result["download_performed"] is True

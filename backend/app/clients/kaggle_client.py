@@ -7,16 +7,27 @@ from app.utils.file_utils import ensure_dir
 
 
 class KaggleClient:
-    def __init__(self, username: str, key: str) -> None:
+    def __init__(self, username: str | None = None, key: str | None = None, api_token: str | None = None) -> None:
         self._username = username
         self._key = key
+        self._api_token = api_token
 
     def download_competition_zip(self, competition: str, destination: Path) -> Path:
         ensure_dir(destination)
 
-        # Kaggle API client uses these env vars during authenticate().
-        os.environ["KAGGLE_USERNAME"] = self._username
-        os.environ["KAGGLE_KEY"] = self._key
+        # Kaggle API supports access token mode and legacy username/key mode.
+        if self._api_token:
+            os.environ["KAGGLE_API_TOKEN"] = self._api_token
+            os.environ.pop("KAGGLE_USERNAME", None)
+            os.environ.pop("KAGGLE_KEY", None)
+        else:
+            if not self._username or not self._key:
+                raise RuntimeError(
+                    "Kaggle credentials missing: provide KAGGLE_API_TOKEN or KAGGLE_USERNAME/KAGGLE_KEY."
+                )
+            os.environ["KAGGLE_USERNAME"] = self._username
+            os.environ["KAGGLE_KEY"] = self._key
+            os.environ.pop("KAGGLE_API_TOKEN", None)
 
         from kaggle.api.kaggle_api_extended import KaggleApi
 
