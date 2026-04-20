@@ -166,6 +166,23 @@
   - added optional `dataset_id` input in `frontend/index.html`
   - create-job payload now sends `dataset_id` when provided
   - clarified UX text that blank `dataset_id` overwrites `_artifacts/current`
+- Replaced frontend raw-JSON-first view with dashboard sections (no React rewrite):
+  - split frontend into `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`
+  - dashboard now loads and renders:
+    - `GET /jobs/{job_id}`
+    - `GET /jobs/{job_id}/summary`
+    - `GET /jobs/{job_id}/artifacts`
+    - `GET /jobs/{job_id}/artifacts/feature_cards`
+    - `GET /jobs/{job_id}/artifacts/cleaning_plan`
+  - added sections:
+    - pipeline status + stage history
+    - executive summary
+    - data quality cards
+    - artifact download links
+    - feature explorer table
+    - feature drilldown side panel
+    - cleaning plan review checklist (render-only)
+    - raw JSON moved to collapsed details block
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:
