@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 
@@ -111,6 +112,35 @@ def _build_numeric_distributions(df: pd.DataFrame) -> dict:
     return distributions
 
 
+def _build_numeric_histograms(df: pd.DataFrame, max_bins: int = 12) -> dict:
+    histograms: dict[str, dict] = {}
+    numeric_df = df.select_dtypes(include=["number"])
+
+    for column_name in numeric_df.columns:
+        series = numeric_df[column_name].dropna()
+        column = str(column_name)
+        if series.empty:
+            histograms[column] = {"bins": [], "counts": []}
+            continue
+
+        unique_count = int(series.nunique(dropna=True))
+        bin_count = min(max(unique_count, 1), max_bins)
+        if float(series.min()) == float(series.max()):
+            min_value = float(series.min())
+            max_value = float(series.max()) + 1.0
+            counts = np.array([len(series)])
+            bins = np.array([min_value, max_value])
+        else:
+            counts, bins = np.histogram(series.astype(float), bins=bin_count)
+
+        histograms[column] = {
+            "bins": [float(value) for value in bins.tolist()],
+            "counts": [int(value) for value in counts.tolist()],
+        }
+
+    return histograms
+
+
 def _build_top_values(df: pd.DataFrame) -> dict:
     top_values: dict[str, list[dict]] = {}
     for column_name in df.columns:
@@ -151,6 +181,7 @@ def _simulate_profile_from_ingestion(ingestion_output: dict) -> dict:
             for column_name in column_names
         ],
         "numeric_distributions": {},
+        "numeric_histograms": {},
         "top_values": {},
         "note": "Simulated profiling (selected_file_path unavailable).",
         "ingestion_ref": ingestion_output.get("selected_file"),
@@ -185,6 +216,7 @@ def _run_real_profiling(ingestion_output: dict) -> dict:
         "numeric_summary": _build_numeric_summary(df),
         "cardinality": _build_cardinality(df),
         "numeric_distributions": _build_numeric_distributions(df),
+        "numeric_histograms": _build_numeric_histograms(df),
         "top_values": _build_top_values(df),
         "note": "Profile generated from selected CSV.",
         "ingestion_ref": ingestion_output.get("selected_file"),

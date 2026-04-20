@@ -112,6 +112,8 @@ def test_modeling_contract_infers_titanic_like_roles() -> None:
     assert contract["task"]["inferred_problem_type"] == "binary_classification"
     assert contract["task"]["target_column"] == "Survived"
     assert "PassengerId" in contract["column_roles"]["id_columns"]
+    assert "Name" not in contract["column_roles"]["id_columns"]
+    assert "Name" in contract["column_roles"]["excluded_by_default"]
     assert "PassengerId" in contract["column_roles"]["excluded_by_default"]
     assert "Pclass" in contract["column_roles"]["numeric_features"]
     assert "Sex" in contract["column_roles"]["categorical_features"]

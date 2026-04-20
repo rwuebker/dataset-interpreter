@@ -40,6 +40,11 @@ def _role_lookup(modeling_contract: dict) -> dict[str, str]:
     return role_by_column
 
 
+def _is_text_like_column_name(column: str) -> bool:
+    normalized = column.strip().lower()
+    return normalized in {"name", "full_name", "description", "text", "title"}
+
+
 def _physical_type(column: str, profile_output: dict) -> str:
     column_types = profile_output.get("column_types", {})
     if column in set(column_types.get("boolean", [])):
@@ -58,6 +63,7 @@ def _physical_type(column: str, profile_output: dict) -> str:
 
 def _semantic_type(
     *,
+    column: str,
     role: str,
     physical_type: str,
     unique_percent: float,
@@ -76,6 +82,8 @@ def _semantic_type(
         return "numeric_continuous"
 
     if physical_type == "string":
+        if _is_text_like_column_name(column) or (unique_percent >= 85.0 and unique_count >= 100):
+            return "text_like"
         if unique_percent >= 50 or unique_count >= 100:
             return "categorical_high_cardinality"
         return "categorical_low_cardinality"
@@ -90,42 +98,138 @@ def _quality_status(
     *,
     role: str,
     missing_percent: float,
-    issue_severity: str,
+    has_type_inconsistency: bool,
+    outlier_ratio: float,
     semantic_type: str,
 ) -> str:
     if role == "target":
         if missing_percent > 0:
             return "risky"
         return "healthy"
+    if role == "id":
+        return "healthy"
+    if role == "excluded":
+        if missing_percent >= 70:
+            return "risky"
+        if has_type_inconsistency:
+            return "needs_attention"
+        return "healthy"
 
-    if missing_percent >= 50:
+    score = 0
+    if has_type_inconsistency:
+        score += 3
+
+    if missing_percent >= 40:
+        score += 3
+    elif missing_percent >= 10:
+        score += 2
+    elif missing_percent > 0.5:
+        score += 1
+
+    if outlier_ratio >= 0.08:
+        score += 2
+    elif outlier_ratio >= 0.02:
+        score += 1
+
+    if semantic_type in {"categorical_high_cardinality", "text_like"}:
+        score += 1
+
+    if score >= 4:
         return "risky"
-    if issue_severity in {"high", "critical"}:
-        return "risky"
-    if missing_percent >= 10 or issue_severity == "moderate":
-        return "needs_attention"
-    if semantic_type == "categorical_high_cardinality":
+    if score >= 1:
         return "needs_attention"
     return "healthy"
 
 
-def _action_and_use(role: str, semantic_type: str, missing_percent: float, quality_status: str) -> tuple[str, str, str]:
+def _action_and_use(
+    *,
+    role: str,
+    semantic_type: str,
+    missing_percent: float,
+    quality_status: str,
+    has_type_inconsistency: bool,
+    outlier_ratio: float,
+) -> tuple[str, str, str]:
     if role == "target":
         return "Set as supervised target.", "target", "Column selected as target candidate."
     if role == "id":
         return "Exclude from baseline model features.", "id", "Identifier-like column."
     if role == "excluded":
+        if semantic_type == "text_like":
+            return (
+                "Exclude from baseline model; optional feature engineering can derive title-like tokens.",
+                "no",
+                "Text-like column is excluded by default to avoid noisy sparse features.",
+            )
         if missing_percent >= 70:
             return "Derive missingness indicator and exclude raw column.", "no", "Very high missingness."
         return "Exclude by default; include only with explicit justification.", "no", "Excluded by default by contract."
 
+    if has_type_inconsistency:
+        return (
+            "Normalize mixed data types before feature engineering.",
+            "maybe",
+            "Column has mixed numeric/non-numeric patterns.",
+        )
+    if outlier_ratio >= 0.02 and semantic_type in {"numeric_continuous", "numeric_discrete"}:
+        return (
+            "Use robust scaling or winsorization before baseline modeling.",
+            "yes",
+            "Column contains notable outlier density.",
+        )
     if semantic_type == "categorical_high_cardinality":
         return "Use frequency/target encoding with leakage-safe CV.", "maybe", "High-cardinality categorical feature."
+    if semantic_type == "text_like":
+        return "Exclude by default or derive compact text indicators.", "maybe", "Text-like free-form feature."
     if quality_status == "risky":
         return "Review and remediate quality issues before modeling.", "maybe", "Feature has high-risk data quality signals."
     if missing_percent > 0:
         return "Impute missing values and add indicator if needed.", "yes", "Feature is usable after missing-value treatment."
     return "Use in baseline feature set.", "yes", "Feature appears healthy for baseline modeling."
+
+
+def _issue_signals(issues_output: dict) -> tuple[set[str], dict[str, int], int]:
+    inconsistent_columns = set(str(column) for column in issues_output.get("summary", {}).get("inconsistent_columns", []))
+    outlier_columns_raw = issues_output.get("summary", {}).get("outlier_columns", {}) or {}
+    outlier_columns: dict[str, int] = {str(column): int(count) for column, count in outlier_columns_raw.items()}
+    rows_analyzed = int(issues_output.get("summary", {}).get("rows_analyzed", 0))
+
+    for issue in issues_output.get("issues", []):
+        if issue.get("issue_type") == "type_inconsistencies":
+            for column in issue.get("affected_columns", []):
+                inconsistent_columns.add(str(column))
+
+    return inconsistent_columns, outlier_columns, rows_analyzed
+
+
+def _build_chart_payload(column: str, physical: str, profile_output: dict) -> dict | None:
+    histograms = profile_output.get("numeric_histograms", {})
+    top_values = profile_output.get("top_values", {})
+
+    if physical in {"integer", "float"}:
+        histogram = histograms.get(column, {})
+        bins = histogram.get("bins", [])
+        counts = histogram.get("counts", [])
+        if isinstance(bins, list) and isinstance(counts, list) and len(bins) >= 2 and len(counts) >= 1:
+            return {
+                "type": "histogram",
+                "bins": bins,
+                "counts": counts,
+            }
+
+    column_top_values = top_values.get(column, [])
+    if isinstance(column_top_values, list) and column_top_values:
+        return {
+            "type": "bar",
+            "values": [
+                {
+                    "label": str(item.get("value", "")),
+                    "count": int(item.get("count", 0)),
+                }
+                for item in column_top_values
+            ],
+        }
+    return None
 
 
 def build_feature_cards(profile_output: dict, issues_output: dict, modeling_contract: dict) -> list[dict]:
@@ -134,11 +238,8 @@ def build_feature_cards(profile_output: dict, issues_output: dict, modeling_cont
     cardinality = _cardinality_map(profile_output)
     missing = _missing_map(profile_output)
 
-    issue_lookup: dict[str, str] = {}
-    for issue in issues_output.get("issues", []):
-        severity = str(issue.get("severity", "low"))
-        for affected in issue.get("affected_columns", []):
-            issue_lookup[str(affected)] = severity
+    inconsistent_columns, outlier_columns, rows_analyzed = _issue_signals(issues_output)
+    rows_for_ratio = max(rows_analyzed or int(profile_output.get("rows", 0)) or 1, 1)
 
     distributions = profile_output.get("numeric_distributions", {})
     top_values = profile_output.get("top_values", {})
@@ -152,16 +253,19 @@ def build_feature_cards(profile_output: dict, issues_output: dict, modeling_cont
         missing_percent = float(missing.get(column, {}).get("missing_percent", 0.0))
         physical = _physical_type(column, profile_output)
         semantic = _semantic_type(
+            column=column,
             role=role,
             physical_type=physical,
             unique_percent=unique_percent,
             unique_count=unique_count,
         )
-        issue_severity = issue_lookup.get(column, str(issues_output.get("missing_data", "low")))
+        has_type_inconsistency = column in inconsistent_columns
+        outlier_ratio = float(outlier_columns.get(column, 0)) / float(rows_for_ratio)
         quality = _quality_status(
             role=role,
             missing_percent=missing_percent,
-            issue_severity=issue_severity,
+            has_type_inconsistency=has_type_inconsistency,
+            outlier_ratio=outlier_ratio,
             semantic_type=semantic,
         )
         action, use_in_model, rationale = _action_and_use(
@@ -169,6 +273,8 @@ def build_feature_cards(profile_output: dict, issues_output: dict, modeling_cont
             semantic_type=semantic,
             missing_percent=missing_percent,
             quality_status=quality,
+            has_type_inconsistency=has_type_inconsistency,
+            outlier_ratio=outlier_ratio,
         )
 
         card = {
@@ -184,11 +290,16 @@ def build_feature_cards(profile_output: dict, issues_output: dict, modeling_cont
             "recommended_action": action,
             "use_in_model": use_in_model,
             "rationale": rationale,
+            "outlier_ratio": outlier_ratio,
+            "type_inconsistency": has_type_inconsistency,
         }
         if column in distributions:
             card["distribution"] = distributions[column]
         if column in top_values:
             card["top_values"] = top_values[column]
+        chart_payload = _build_chart_payload(column, physical, profile_output)
+        if chart_payload is not None:
+            card["chart"] = chart_payload
         cards.append(card)
 
     return cards

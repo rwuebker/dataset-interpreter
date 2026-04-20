@@ -27,6 +27,8 @@ def test_issue_detection_flags_duplicates_outliers_and_type_inconsistencies(tmp_
 
     assert issues["summary"]["duplicate_rows"] >= 1
     assert issues["outliers"] in {"low", "moderate", "high"}
+    assert "outlier_columns" in issues["summary"]
+    assert "age" in issues["summary"]["outlier_columns"]
     assert issues["type_inconsistencies"] == "detected"
     assert "mixed" in issues["summary"]["inconsistent_columns"]
     assert any(issue["issue_type"] == "duplicates" for issue in issues["issues"])

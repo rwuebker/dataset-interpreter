@@ -183,6 +183,30 @@
     - feature drilldown side panel
     - cleaning plan review checklist (render-only)
     - raw JSON moved to collapsed details block
+- Backend Step 3 + Step 4 refinements (existing services, no pipeline rewrite):
+  - `profiling_service.py`:
+    - added deterministic numeric histogram data under `numeric_histograms` (`bins` + `counts`)
+  - `issue_detection_service.py`:
+    - added per-column outlier metadata in summary (`outlier_columns`)
+  - `modeling_contract_service.py`:
+    - refined ID inference to avoid treating text-like columns (e.g., `Name`) as IDs
+    - keeps text-like/high-card columns excluded by default
+  - `feature_card_service.py`:
+    - added deterministic `chart` field per feature card:
+      - `type=histogram` for numeric features (from `numeric_histograms`)
+      - `type=bar` for categorical features (from `top_values`)
+    - replaced global-severity-heavy quality logic with column-specific signals:
+      - missing percent by column
+      - type inconsistency by affected column
+      - outlier ratio by numeric column
+      - role-aware handling (target/id/excluded/feature)
+    - improved semantics for text-like columns (`text_like`)
+  - Added/updated backend tests for:
+    - numeric histogram presence
+    - per-column outlier summary metadata
+    - `Name` not inferred as ID in modeling contract
+    - feature-card quality precision and chart payloads
+  - Verified backend test suite: `25 passed`
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

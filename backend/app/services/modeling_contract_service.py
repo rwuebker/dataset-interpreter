@@ -38,6 +38,11 @@ def _is_identifier_name(column_name: str) -> bool:
     return normalized.endswith("id") or normalized.endswith("_id") or normalized in {"id", "passengerid"}
 
 
+def _is_text_like_column_name(column_name: str) -> bool:
+    normalized = column_name.strip().lower()
+    return normalized in {"name", "full_name", "description", "text", "title"}
+
+
 def _ordered_subset(columns: Iterable[str], ordered_source: list[str]) -> list[str]:
     lookup = set(columns)
     return [column for column in ordered_source if column in lookup]
@@ -128,12 +133,19 @@ def _infer_id_columns(
     target_column: str | None,
 ) -> list[str]:
     id_candidates: list[str] = []
+    numerical_columns = set(profile_output.get("column_types", {}).get("numerical", []))
     for column in profile_output.get("column_names", []):
         column_name = str(column)
         if target_column and column_name == target_column:
             continue
+        if _is_text_like_column_name(column_name):
+            continue
         unique_percent = float(cardinality.get(column_name, {}).get("unique_percent", 0.0))
-        if _is_identifier_name(column_name) or unique_percent >= 99.5:
+        if _is_identifier_name(column_name):
+            id_candidates.append(column_name)
+            continue
+        # Only infer uniqueness-based IDs for numeric columns to avoid mislabeling text fields like "Name".
+        if unique_percent >= 99.5 and column_name in numerical_columns:
             id_candidates.append(column_name)
     return id_candidates
 
@@ -189,6 +201,8 @@ def _infer_role_sets(
     for column in columns:
         missing_percent = float(missing.get(column, {}).get("missing_percent", 0.0))
         if missing_percent >= 70.0:
+            excluded_by_default.add(column)
+        if _is_text_like_column_name(column):
             excluded_by_default.add(column)
     excluded_by_default.update(high_cardinality_categoricals)
     if target_column:
@@ -247,6 +261,17 @@ def _recommended_preprocessing(
                     "operation": "exclude_column",
                     "strategy": "identifier",
                     "rationale": "Identifier-like column should be excluded from baseline feature set.",
+                }
+            )
+            continue
+
+        if _is_text_like_column_name(column):
+            actions.append(
+                {
+                    "column": column,
+                    "operation": "exclude_column",
+                    "strategy": "text_like_high_cardinality",
+                    "rationale": "Text-like column is excluded from baseline tabular feature set by default.",
                 }
             )
             continue

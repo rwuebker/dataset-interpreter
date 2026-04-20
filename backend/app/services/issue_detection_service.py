@@ -31,8 +31,11 @@ def _scan_dataset_issues(csv_path: Path, delimiter: str) -> dict:
     duplicate_rows = int(df.duplicated().sum())
 
     outlier_cells = 0
+    outlier_columns: dict[str, int] = {}
     numeric_df = df.select_dtypes(include=["number"])
     for column_name in numeric_df.columns:
+        column = str(column_name)
+        outlier_columns[column] = 0
         series = numeric_df[column_name].dropna()
         if len(series) < 4:
             continue
@@ -43,7 +46,9 @@ def _scan_dataset_issues(csv_path: Path, delimiter: str) -> dict:
             continue
         lower = q1 - (1.5 * iqr)
         upper = q3 + (1.5 * iqr)
-        outlier_cells += int(((series < lower) | (series > upper)).sum())
+        outlier_count = int(((series < lower) | (series > upper)).sum())
+        outlier_cells += outlier_count
+        outlier_columns[column] = outlier_count
 
     inconsistent_columns: list[str] = []
     object_df = df.select_dtypes(include=["object", "string"])
@@ -65,6 +70,7 @@ def _scan_dataset_issues(csv_path: Path, delimiter: str) -> dict:
     return {
         "duplicate_rows": duplicate_rows,
         "outlier_cells": outlier_cells,
+        "outlier_columns": outlier_columns,
         "inconsistent_columns": inconsistent_columns,
         "duplicate_ratio": duplicate_ratio,
         "outlier_ratio": outlier_ratio,
@@ -140,6 +146,7 @@ def _run_issue_detection(profile_output: dict, ingestion_output: dict | None) ->
     outlier_severity = "none"
     duplicate_rows = 0
     outlier_cells = 0
+    outlier_columns: dict[str, int] = {}
     inconsistent_columns: list[str] = []
 
     selected_file_path = (ingestion_output or {}).get("selected_file_path")
@@ -148,6 +155,7 @@ def _run_issue_detection(profile_output: dict, ingestion_output: dict | None) ->
         scan = _scan_dataset_issues(Path(selected_file_path), delimiter)
         duplicate_rows = scan["duplicate_rows"]
         outlier_cells = scan["outlier_cells"]
+        outlier_columns = scan["outlier_columns"]
         inconsistent_columns = scan["inconsistent_columns"]
         duplicate_severity = _ratio_to_severity(scan["duplicate_ratio"])
         outlier_severity = _ratio_to_severity(scan["outlier_ratio"])
@@ -174,6 +182,7 @@ def _run_issue_detection(profile_output: dict, ingestion_output: dict | None) ->
         "summary": {
             "duplicate_rows": duplicate_rows,
             "outlier_cells": outlier_cells,
+            "outlier_columns": outlier_columns,
             "inconsistent_columns": inconsistent_columns,
             "rows_analyzed": rows,
         },
