@@ -13,6 +13,9 @@ __pycache__/
 .coverage.*
 htmlcov/
 
+# Local review/export archives
+*.zip
+
 # Virtual environments
 .venv/
 venv/
