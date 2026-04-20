@@ -140,6 +140,19 @@
   - fallback to legacy username/key when token is not provided
 - Updated env documentation/template to include token-first setup.
 - Added ingestion test coverage for access-token-only mode.
+- Added Realignment 01 documentation for artifact-first handoff direction:
+  - `docs/REALIGNMENT_01_ARTIFACT_HANDOFF.md`
+- Began Realignment 01 backend implementation:
+  - artifact package generation under `backend/data/artifacts/<job_id>/`
+  - manifest contract and artifact export service
+  - new endpoints:
+    - `GET /jobs/{job_id}/summary`
+    - `GET /jobs/{job_id}/artifacts`
+    - `GET /jobs/{job_id}/artifacts/{artifact_id}`
+  - deterministic `modeling_contract.json`
+  - deterministic `feature_cards.jsonl`
+  - separated `cleaning_plan.json` and `cleaning_receipt.json`
+  - public-response path sanitization via artifact references and download URLs
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

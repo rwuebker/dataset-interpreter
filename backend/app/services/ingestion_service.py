@@ -67,6 +67,7 @@ def _ensure_cached_competition_data(dataset: KaggleDatasetInput) -> dict:
                 "selected_csv": cached_primary,
                 "zip_path": _find_cached_zip(download_dir, dataset.competition),
                 "extract_path": extracted_dir,
+                "csv_files": cached_csv_files,
                 "csv_file_count": len(cached_csv_files),
                 "download_performed": False,
                 "cache_hit": True,
@@ -95,10 +96,42 @@ def _ensure_cached_competition_data(dataset: KaggleDatasetInput) -> dict:
             "selected_csv": selected_csv,
             "zip_path": zip_path,
             "extract_path": extracted_dir,
+            "csv_files": extracted_csv_files,
             "csv_file_count": len(extracted_csv_files),
             "download_performed": download_performed,
             "cache_hit": False,
         }
+
+
+def _build_source_metadata(csv_files: list[Path], selected_csv: Path) -> dict:
+    file_names = sorted({csv_file.name for csv_file in csv_files})
+    lowered = {name.lower(): name for name in file_names}
+
+    selected_train = lowered.get("train.csv", selected_csv.name)
+    selected_test = lowered.get("test.csv")
+    sample_submission = lowered.get("sample_submission.csv") or lowered.get("gender_submission.csv")
+    if sample_submission is None:
+        for name in file_names:
+            if "submission" in name.lower():
+                sample_submission = name
+                break
+
+    file_columns: dict[str, list[str]] = {}
+    for csv_file in csv_files:
+        try:
+            delimiter = _detect_delimiter(csv_file)
+            header_df = pd.read_csv(csv_file, sep=delimiter, nrows=0, low_memory=False)
+            file_columns[csv_file.name] = [str(column) for column in header_df.columns]
+        except Exception:
+            file_columns[csv_file.name] = []
+
+    return {
+        "files_detected": file_names,
+        "selected_train_file": selected_train,
+        "selected_test_file": selected_test,
+        "sample_submission_file": sample_submission,
+        "file_columns": file_columns,
+    }
 
 
 def _simulate_ingestion(dataset: KaggleDatasetInput) -> dict:
@@ -106,6 +139,13 @@ def _simulate_ingestion(dataset: KaggleDatasetInput) -> dict:
         "source": "kaggle",
         "competition": dataset.competition,
         "selected_file": "train.csv",
+        "source_metadata": {
+            "files_detected": ["train.csv", "test.csv", "sample_submission.csv"],
+            "selected_train_file": "train.csv",
+            "selected_test_file": "test.csv",
+            "sample_submission_file": "sample_submission.csv",
+            "file_columns": {},
+        },
         "dataset_metadata": {
             "row_count": 1000,
             "column_count": 12,
@@ -175,7 +215,9 @@ def _run_real_ingestion(dataset: KaggleDatasetInput) -> dict:
     run_dir = ensure_dir(_build_job_run_dir(dataset.competition))
     cache_details = _ensure_cached_competition_data(dataset)
     selected_csv = cache_details["selected_csv"]
+    csv_files = cache_details.get("csv_files", [selected_csv])
     dataset_metadata = _collect_dataset_metadata(selected_csv)
+    source_metadata = _build_source_metadata(csv_files=csv_files, selected_csv=selected_csv)
 
     if cache_details["download_performed"]:
         note = "Real Kaggle ingestion completed (downloaded raw data and created cache)."
@@ -195,6 +237,7 @@ def _run_real_ingestion(dataset: KaggleDatasetInput) -> dict:
         "analysis_output_dir": str(run_dir),
         "download_performed": bool(cache_details["download_performed"]),
         "cache_hit": bool(cache_details["cache_hit"]),
+        "source_metadata": source_metadata,
         "dataset_metadata": dataset_metadata,
         "note": note,
     }

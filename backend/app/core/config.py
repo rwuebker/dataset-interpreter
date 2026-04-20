@@ -14,6 +14,7 @@ class Settings:
     simulate_stage_delay_seconds: float
     simulate_job_failure_probability: float
     dataset_storage_root: Path
+    artifact_storage_root: Path
     enable_real_kaggle_ingestion: bool
     enable_real_ai_interpretation: bool
     enable_cleaning_output: bool
@@ -28,6 +29,7 @@ settings = Settings(
     simulate_stage_delay_seconds=float(os.getenv("SIMULATE_STAGE_DELAY_SECONDS", "0.6")),
     simulate_job_failure_probability=float(os.getenv("SIMULATE_JOB_FAILURE_PROBABILITY", "0.0")),
     dataset_storage_root=Path(os.getenv("DATASET_STORAGE_ROOT", "data/raw")).resolve(),
+    artifact_storage_root=Path(os.getenv("ARTIFACT_STORAGE_ROOT", "data/artifacts")).resolve(),
     enable_real_kaggle_ingestion=_as_bool(os.getenv("ENABLE_REAL_KAGGLE_INGESTION"), default=False),
     enable_real_ai_interpretation=_as_bool(os.getenv("ENABLE_REAL_AI_INTERPRETATION"), default=True),
     enable_cleaning_output=_as_bool(os.getenv("ENABLE_CLEANING_OUTPUT"), default=False),
