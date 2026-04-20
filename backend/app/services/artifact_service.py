@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app.core.config import settings
+from app.stores.job_store import job_store
 from app.services.cleaning_plan_service import (
     CLEANING_PLAN_SCHEMA_VERSION,
     CLEANING_RECEIPT_SCHEMA_VERSION,
@@ -25,16 +26,65 @@ def _utc_now_iso() -> str:
     return _utc_now().isoformat()
 
 
-def _artifact_dir(job_id: str) -> Path:
-    return ensure_dir(settings.artifact_storage_root / job_id)
+def _safe_path_component(raw_value: str) -> str:
+    return "".join(char if char.isalnum() or char in {"-", "_"} else "_" for char in raw_value.strip())
 
 
-def _artifact_root(job_id: str) -> Path:
+def _competition_artifact_root(competition: str) -> Path:
+    safe_competition = _safe_path_component(competition)
+    return settings.dataset_storage_root / safe_competition / "_artifacts"
+
+
+def _artifact_root_for_run(competition: str, dataset_id: str | None) -> Path:
+    base = _competition_artifact_root(competition)
+    if dataset_id:
+        safe_dataset_id = _safe_path_component(dataset_id)
+        return base / "by_dataset" / safe_dataset_id
+    return base / "current"
+
+
+def _artifact_mode(dataset_id: str | None) -> str:
+    return "dataset_persistent" if dataset_id else "current_overwrite"
+
+
+def _clear_directory(path: Path) -> None:
+    if path.exists():
+        shutil.rmtree(path)
+
+
+def prepare_artifact_workspace(competition: str, dataset_id: str | None) -> Path:
+    root = _artifact_root_for_run(competition, dataset_id)
+    _clear_directory(root)
+    return ensure_dir(root)
+
+
+def _legacy_artifact_root(job_id: str) -> Path:
     return settings.artifact_storage_root / job_id
 
 
-def _manifest_path(job_id: str) -> Path:
-    return _artifact_root(job_id) / "manifest.json"
+def _resolve_job_artifact_root(job_id: str) -> Path | None:
+    job = job_store.get(job_id)
+    if job is not None:
+        result = job.result or {}
+        pipeline_summary = result.get("pipeline_summary") or {}
+        competition = pipeline_summary.get("competition")
+        dataset_id = pipeline_summary.get("dataset_id")
+        if competition:
+            preferred_path = _artifact_root_for_run(str(competition), str(dataset_id) if dataset_id else None)
+            if preferred_path.exists():
+                return preferred_path
+
+    legacy_path = _legacy_artifact_root(job_id)
+    if legacy_path.exists():
+        return legacy_path
+    return None
+
+
+def _manifest_path(job_id: str) -> Path | None:
+    root = _resolve_job_artifact_root(job_id)
+    if root is None:
+        return None
+    return root / "manifest.json"
 
 
 def _download_url(job_id: str, artifact_id: str) -> str:
@@ -104,13 +154,17 @@ def create_artifact_package(
     job_id: str,
     created_at: datetime,
     status: str,
+    competition: str,
+    dataset_id: str | None,
     ingestion_output: dict,
     profile_output: dict,
     issues_output: dict,
     interpretation_output: dict,
     cleaning_output: dict,
 ) -> dict:
-    artifact_dir = _artifact_dir(job_id)
+    artifact_root = _artifact_root_for_run(competition, dataset_id)
+    _clear_directory(artifact_root)
+    artifact_dir = ensure_dir(artifact_root)
     created_at_iso = _utc_now_iso()
     records: list[dict] = []
 
@@ -291,6 +345,9 @@ def create_artifact_package(
         "job_id": job_id,
         "status": status,
         "created_at": created_at_iso,
+        "competition": competition,
+        "dataset_id": dataset_id,
+        "storage_mode": _artifact_mode(dataset_id),
         "artifacts": records
         + [
             {
@@ -304,7 +361,7 @@ def create_artifact_package(
             }
         ],
     }
-    _write_json(_manifest_path(job_id), manifest)
+    _write_json(artifact_dir / "manifest.json", manifest)
 
     return {
         "manifest": manifest,
@@ -316,21 +373,27 @@ def create_artifact_package(
 
 def load_manifest(job_id: str) -> dict | None:
     path = _manifest_path(job_id)
-    if not path.exists():
+    if path is None or not path.exists():
         return None
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        payload = json.load(handle)
+    if payload.get("job_id") != job_id:
+        return None
+    return payload
 
 
 def resolve_artifact(job_id: str, artifact_id: str) -> tuple[dict, Path] | None:
     manifest = load_manifest(job_id)
     if not manifest:
         return None
+    artifact_root = _resolve_job_artifact_root(job_id)
+    if artifact_root is None:
+        return None
 
     for artifact in manifest.get("artifacts", []):
         if artifact.get("artifact_id") != artifact_id:
             continue
-        artifact_path = _artifact_root(job_id) / str(artifact.get("filename"))
+        artifact_path = artifact_root / str(artifact.get("filename"))
         if artifact_path.exists():
             return artifact, artifact_path
         return None

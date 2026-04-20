@@ -20,3 +20,4 @@ class CreateJobRequest(BaseModel):
     source_type: DatasetSourceType
     kaggle: KaggleDatasetInput | None = None
     csv_upload: CSVUploadPlaceholderInput | None = None
+    dataset_id: str | None = None

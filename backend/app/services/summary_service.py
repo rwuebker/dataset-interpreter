@@ -42,6 +42,7 @@ def build_job_summary(job_payload: dict, manifest_payload: dict | None) -> dict:
         "status": job_payload.get("status"),
         "source": pipeline_summary.get("source"),
         "competition": pipeline_summary.get("competition"),
+        "dataset_id": pipeline_summary.get("dataset_id"),
         "selected_file": pipeline_summary.get("selected_file"),
         "rows": profile.get("rows"),
         "columns": profile.get("columns"),

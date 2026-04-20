@@ -92,6 +92,19 @@ The frontend normalizes URL input to the required slug automatically.
 - `GET /health`
 - `POST /jobs/create`
 - `GET /jobs/{job_id}`
+- `GET /jobs/{job_id}/summary`
+- `GET /jobs/{job_id}/artifacts`
+- `GET /jobs/{job_id}/artifacts/{artifact_id}`
+
+`POST /jobs/create` supports an optional `dataset_id` field:
+
+```json
+{
+  "source_type": "kaggle",
+  "kaggle": { "competition": "titanic" },
+  "dataset_id": "demo_v1"
+}
+```
 
 ## Where Kaggle Data Is Stored
 
@@ -126,3 +139,22 @@ Cache location:
 Per-job outputs (for isolated artifacts like cleaning output) still use unique run folders:
 
 - `backend/data/raw/<competition_slug>/<timestamp>_<short_id>/`
+
+## Artifact Storage Policy
+
+Artifacts are now stored under each competition cache folder:
+
+- `backend/data/raw/<competition_slug>/_artifacts/current/`
+- `backend/data/raw/<competition_slug>/_artifacts/by_dataset/<dataset_id>/`
+
+Default behavior (no `dataset_id`):
+
+- writes artifacts to `current`
+- clears and overwrites `current` at each new run
+
+Persistent behavior (with `dataset_id`):
+
+- writes artifacts to `by_dataset/<dataset_id>`
+- keeps dataset-scoped artifacts available across later default runs
+
+Public API responses expose artifact IDs and download URLs, not local absolute filesystem paths.

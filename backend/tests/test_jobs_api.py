@@ -58,3 +58,18 @@ def test_create_job_csv_upload_is_not_implemented_yet() -> None:
 
     assert response.status_code == 501
     assert "not implemented yet" in response.json()["detail"].lower()
+
+
+def test_create_job_accepts_optional_dataset_id() -> None:
+    create_response = client.post(
+        "/jobs/create",
+        json={
+            "source_type": "kaggle",
+            "kaggle": {"competition": "titanic"},
+            "dataset_id": "demo_v1",
+        },
+    )
+    assert create_response.status_code == 200
+    payload = create_response.json()
+    assert payload["status"] == "pending"
+    assert payload["job_id"]

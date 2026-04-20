@@ -32,9 +32,15 @@ def create_job(payload: CreateJobRequest, background_tasks: BackgroundTasks) -> 
             detail="Kaggle mode requires source_type='kaggle' with a kaggle.competition value.",
         )
 
+    dataset_id = (payload.dataset_id or "").strip() or None
     job = job_store.create(JobRecord())
-    background_tasks.add_task(run_job, job.job_id, payload.kaggle)
-    logger.info("Created job %s for Kaggle competition '%s'", job.job_id, payload.kaggle.competition)
+    background_tasks.add_task(run_job, job.job_id, payload.kaggle, dataset_id)
+    logger.info(
+        "Created job %s for Kaggle competition '%s' (dataset_id=%s)",
+        job.job_id,
+        payload.kaggle.competition,
+        dataset_id,
+    )
 
     return CreateJobResponse(job_id=job.job_id, status=job.status)
 

@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.schemas.dataset import KaggleDatasetInput
 from app.schemas.job import JobStage, JobStatus
 from app.services.ai_interpretation_service import run_ai_interpretation
-from app.services.artifact_service import create_artifact_package
+from app.services.artifact_service import create_artifact_package, prepare_artifact_workspace
 from app.services.cleaning_service import run_optional_cleaning
 from app.services.ingestion_service import run_ingestion
 from app.services.issue_detection_service import run_issue_detection
@@ -38,7 +38,7 @@ def _maybe_simulate_failure(stage: JobStage) -> None:
         raise RuntimeError(f"Simulated failure at stage '{stage.value}'.")
 
 
-async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
+async def run_job(job_id: str, kaggle_input: KaggleDatasetInput, dataset_id: str | None = None) -> None:
     stage_history: list[dict] = []
 
     def mark_stage_started(stage: JobStage) -> None:
@@ -59,6 +59,11 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
         job_store.update(
             job_id,
             status=JobStatus.RUNNING,
+        )
+        await asyncio.to_thread(
+            prepare_artifact_workspace,
+            kaggle_input.competition,
+            dataset_id,
         )
         mark_stage_started(JobStage.INGESTION)
         _maybe_simulate_failure(JobStage.INGESTION)
@@ -93,6 +98,8 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
             job_id=job_id,
             created_at=job_record.created_at if job_record is not None else datetime.now(timezone.utc),
             status="completed",
+            competition=kaggle_input.competition,
+            dataset_id=dataset_id,
             ingestion_output=ingestion_output,
             profile_output=profile_output,
             issues_output=issues_output,
@@ -110,6 +117,7 @@ async def run_job(job_id: str, kaggle_input: KaggleDatasetInput) -> None:
             "pipeline_summary": {
                 "source": ingestion_output.get("source"),
                 "competition": ingestion_output.get("competition"),
+                "dataset_id": dataset_id,
                 "selected_file": ingestion_output.get("selected_file"),
                 "status": "completed",
                 "stage_history": stage_history,

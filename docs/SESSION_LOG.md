@@ -153,6 +153,15 @@
   - deterministic `feature_cards.jsonl`
   - separated `cleaning_plan.json` and `cleaning_receipt.json`
   - public-response path sanitization via artifact references and download URLs
+- Implemented artifact storage policy v2 (competition-local + dataset-aware persistence):
+  - added optional `dataset_id` on `POST /jobs/create`
+  - changed artifact output root to competition-local cache paths:
+    - `backend/data/raw/<competition>/_artifacts/current` (default overwrite)
+    - `backend/data/raw/<competition>/_artifacts/by_dataset/<dataset_id>` (persistent)
+  - enforced overwrite semantics for default runs by clearing `current` per new run
+  - updated artifact resolution to validate manifest ownership (`manifest.job_id == requested job_id`)
+  - preserved public API safety (no absolute local paths leaked)
+  - added tests validating overwrite behavior and dataset-scoped persistence
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

@@ -39,6 +39,7 @@ class JobSummaryResponse(BaseModel):
     status: JobStatus
     source: str | None = None
     competition: str | None = None
+    dataset_id: str | None = None
     selected_file: str | None = None
     rows: int | None = None
     columns: int | None = None
