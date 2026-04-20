@@ -144,6 +144,8 @@ def _public_cleaned_dataset(cleaning_receipt: dict) -> dict:
         "rows_removed": cleaning_receipt.get("rows_removed"),
         "duplicate_rows_removed": cleaning_receipt.get("duplicate_rows_removed"),
         "imputed_columns": cleaning_receipt.get("imputed_columns", []),
+        "derived_columns": cleaning_receipt.get("derived_columns", []),
+        "dropped_columns": cleaning_receipt.get("dropped_columns", []),
         "type_fixed_columns": cleaning_receipt.get("type_fixed_columns", []),
         "cleaned_dataset_artifact": cleaning_receipt.get("cleaned_dataset_artifact"),
     }

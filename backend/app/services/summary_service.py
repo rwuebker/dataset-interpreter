@@ -1,6 +1,48 @@
 from __future__ import annotations
 
 
+def _deterministic_recommendations(modeling_contract: dict) -> list[str]:
+    steps = modeling_contract.get("recommended_preprocessing", []) or []
+    rendered: list[str] = []
+    seen: set[str] = set()
+
+    for step in steps:
+        column = str(step.get("column", "dataset"))
+        operation = str(step.get("operation", ""))
+        strategy = str(step.get("strategy", "")).strip()
+        add_indicator = bool(step.get("add_missing_indicator"))
+        new_column = step.get("new_column")
+
+        if operation == "set_as_target":
+            text = f"Set `{column}` as the supervised target."
+        elif operation == "exclude_column":
+            text = f"Exclude `{column}` from the baseline feature set."
+        elif operation == "impute_missing":
+            base = f"Impute missing values in `{column}` using `{strategy or 'recommended strategy'}`."
+            text = f"{base} Add a missingness indicator." if add_indicator else base
+        elif operation == "derive_indicator":
+            derived = f"`{new_column}`" if new_column else "a missingness indicator"
+            text = f"Derive {derived} from `{column}` and exclude the raw column by default."
+        elif operation == "outlier_treatment":
+            text = f"Apply robust outlier handling for `{column}` ({strategy or 'winsorization/robust scaling'})."
+        elif operation == "count_feature_treatment":
+            text = f"Treat `{column}` as a count feature; cap rare high values or bin the tail."
+        elif operation == "encode_categorical":
+            text = f"Use leakage-safe encoding for `{column}` ({strategy or 'frequency/target encoding'})."
+        else:
+            rationale = str(step.get("rationale", "")).strip()
+            text = rationale or f"Review `{column}` preprocessing (`{operation}`) before modeling."
+
+        if text in seen:
+            continue
+        seen.add(text)
+        rendered.append(text)
+        if len(rendered) >= 6:
+            break
+
+    return rendered
+
+
 def build_job_summary(job_payload: dict, manifest_payload: dict | None) -> dict:
     result = job_payload.get("result") or {}
     profile = result.get("dataset_profile") or {}
@@ -30,7 +72,9 @@ def build_job_summary(job_payload: dict, manifest_payload: dict | None) -> dict:
             }
         )
 
-    recommended_next_steps = interpretation.get("suggested_next_steps")
+    recommended_next_steps = _deterministic_recommendations(modeling_contract)
+    if not recommended_next_steps:
+        recommended_next_steps = interpretation.get("suggested_next_steps")
     if not recommended_next_steps:
         recommended_next_steps = interpretation.get("recommended_next_steps", [])
 

@@ -133,8 +133,12 @@
 
         <section class="card">
           <h2>Cleaning Plan Review</h2>
-          <p class="muted">Review proposed transformations. Checkboxes are preview-only for now.</p>
-          <ul id="cleaningChecklist" class="checklist"></ul>
+          <p class="muted">Review and select proposed transformations. Apply is coming next.</p>
+          <div id="cleaningGroups" class="cleaning-groups"></div>
+          <div class="cleaning-actions">
+            <button id="applyCleaningButton" type="button" disabled>Apply Selected Cleaning Steps (Coming Next)</button>
+            <span id="applyCleaningHint" class="muted">0 selected</span>
+          </div>
         </section>
 
         <section class="card">

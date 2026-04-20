@@ -207,6 +207,33 @@
     - `Name` not inferred as ID in modeling contract
     - feature-card quality precision and chart payloads
   - Verified backend test suite: `25 passed`
+- Milestone refinement: interactive drilldown charts + cleaning correctness alignment:
+  - Frontend drilldown charts (`frontend/app.js`, `frontend/styles.css`):
+    - added histogram bar rendering from `card.chart.bins` + `card.chart.counts`
+    - added categorical bar rendering from `card.chart.values` (fallback `top_values`)
+    - graceful fallback text when chart data is unavailable
+  - Deterministic recommendation improvements (`modeling_contract_service.py`):
+    - stopped blanket outlier treatment across all numeric features
+    - added semantic heuristics for ordinal-like and count-like numeric columns
+    - count-like columns now receive count-tail treatment guidance instead of generic robust scaling
+    - high-cardinality excluded columns (e.g. Ticket-like) explicitly receive exclusion recommendations
+  - Cleaning execution safety updates (`cleaning_service.py`):
+    - high-missing categorical columns now derive missingness indicator (`has_<column>`) and drop raw column
+    - avoids raw categorical mode-imputation for high-missing columns (e.g. Cabin-like behavior)
+    - cleaning output now tracks `derived_columns` and `dropped_columns`
+  - Cleaning receipt/public payload alignment:
+    - `cleaning_plan_service.py` and `artifact_service.py` now expose `derived_columns` and `dropped_columns`
+  - Summary alignment (`summary_service.py`):
+    - job summary now prefers deterministic modeling-contract-derived next steps over potentially conflicting LLM wording
+  - Cleaning Plan Review UI enhancements:
+    - grouped plan steps by operation type
+    - enabled frontend checkbox state tracking
+    - added disabled “Apply Selected Cleaning Steps (Coming Next)” control with selected count
+  - Added/updated tests:
+    - `test_cleaning_service.py` (indicator derivation + dropped raw column)
+    - `test_modeling_contract_service.py` (column-specific outlier recommendation behavior)
+    - `test_summary_service.py` (deterministic summary precedence)
+  - Verified backend test suite: `28 passed`
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

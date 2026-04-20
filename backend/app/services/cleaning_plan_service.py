@@ -60,6 +60,8 @@ def build_cleaning_receipt(
         "rows_removed": int(cleaning_output.get("rows_removed", 0)),
         "duplicate_rows_removed": int(cleaning_output.get("duplicate_rows_removed", 0)),
         "imputed_columns": list(cleaning_output.get("imputed_columns", [])),
+        "derived_columns": list(cleaning_output.get("derived_columns", [])),
+        "dropped_columns": list(cleaning_output.get("dropped_columns", [])),
         "type_fixed_columns": list(cleaning_output.get("type_fixed_columns", [])),
         "cleaned_dataset_artifact": cleaned_artifact,
         "created_at": _now_iso(),

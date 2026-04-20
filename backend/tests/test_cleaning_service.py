@@ -68,3 +68,35 @@ def test_run_optional_cleaning_respects_analysis_output_dir(tmp_path: Path) -> N
     assert result["status"] == "completed"
     assert cleaned_path.exists()
     assert analysis_output_dir in cleaned_path.parents
+
+
+def test_run_optional_cleaning_derives_indicator_and_drops_high_missing_categorical(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run2"
+    extracted = run_dir / "extracted"
+    extracted.mkdir(parents=True, exist_ok=True)
+    csv_path = extracted / "train.csv"
+    csv_path.write_text(
+        "Cabin,Age,Embarked\n"
+        ",22,S\n"
+        "C85,,C\n"
+        "E46,,S\n"
+        ",29,Q\n"
+        ",35,\n",
+        encoding="utf-8",
+    )
+
+    ingestion_output = {
+        "selected_file_path": str(csv_path),
+        "dataset_metadata": {"delimiter": ","},
+    }
+
+    result = run_optional_cleaning(ingestion_output)
+    cleaned_path = Path(result["cleaned_file_path"])
+    cleaned_df = pd.read_csv(cleaned_path)
+
+    assert result["status"] == "completed"
+    assert "Cabin" not in result["imputed_columns"]
+    assert "Cabin" in result["dropped_columns"]
+    assert "has_cabin" in result["derived_columns"]
+    assert "Cabin" not in cleaned_df.columns
+    assert "has_cabin" in cleaned_df.columns

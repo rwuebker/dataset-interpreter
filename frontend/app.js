@@ -24,7 +24,9 @@ const dom = {
   featurePanelPlaceholder: document.getElementById("featurePanelPlaceholder"),
   featurePanelContent: document.getElementById("featurePanelContent"),
   closePanelButton: document.getElementById("closePanelButton"),
-  cleaningChecklist: document.getElementById("cleaningChecklist"),
+  cleaningGroups: document.getElementById("cleaningGroups"),
+  applyCleaningButton: document.getElementById("applyCleaningButton"),
+  applyCleaningHint: document.getElementById("applyCleaningHint"),
   jobJson: document.getElementById("jobJson"),
 };
 
@@ -33,6 +35,7 @@ const state = {
   lastHydratedJobId: null,
   featureCards: [],
   selectedFeature: null,
+  selectedCleaningStepIds: new Set(),
 };
 
 function normalizeCompetitionInput(rawValue) {
@@ -291,6 +294,89 @@ function renderPanelItem(label, value) {
   `;
 }
 
+function buildHistogramChart(card) {
+  const chart = card.chart || {};
+  const bins = Array.isArray(chart.bins) ? chart.bins : [];
+  const counts = Array.isArray(chart.counts) ? chart.counts : [];
+  if (chart.type !== "histogram" || bins.length < 2 || counts.length < 1) {
+    return null;
+  }
+
+  const maxCount = Math.max(...counts, 1);
+  const rows = counts
+    .map((count, index) => {
+      const lower = bins[index];
+      const upper = bins[index + 1];
+      const label = `${formatValue(lower)} - ${formatValue(upper)}`;
+      const pct = Math.max(2, Math.round((Number(count) / maxCount) * 100));
+      return `
+        <div class="chart-row">
+          <span class="chart-label mono">${label}</span>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="width: ${pct}%"></div>
+          </div>
+          <span class="chart-count mono">${formatValue(count)}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `<div class="chart-block">${rows}</div>`;
+}
+
+function buildCategoricalChart(card) {
+  const chart = card.chart || {};
+  let values = [];
+  if (chart.type === "bar" && Array.isArray(chart.values)) {
+    values = chart.values.map((item) => ({
+      label: item?.label,
+      count: Number(item?.count ?? 0),
+    }));
+  } else if (Array.isArray(card.top_values)) {
+    values = card.top_values.map((item) => ({
+      label: item?.value,
+      count: Number(item?.count ?? 0),
+    }));
+  }
+
+  const filtered = values.filter((item) => Number.isFinite(item.count) && item.count >= 0);
+  if (!filtered.length) {
+    return null;
+  }
+
+  const maxCount = Math.max(...filtered.map((item) => item.count), 1);
+  const rows = filtered
+    .map((item) => {
+      const pct = Math.max(2, Math.round((item.count / maxCount) * 100));
+      return `
+        <div class="chart-row">
+          <span class="chart-label mono">${formatValue(item.label)}</span>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="width: ${pct}%"></div>
+          </div>
+          <span class="chart-count mono">${formatValue(item.count)}</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `<div class="chart-block">${rows}</div>`;
+}
+
+function renderFeatureChart(card) {
+  const histogram = buildHistogramChart(card);
+  if (histogram) {
+    return histogram;
+  }
+
+  const categorical = buildCategoricalChart(card);
+  if (categorical) {
+    return categorical;
+  }
+
+  return '<p class="muted">No chart data available.</p>';
+}
+
 function openFeaturePanel(index) {
   const card = state.featureCards[index];
   if (!card) {
@@ -315,6 +401,7 @@ function openFeaturePanel(index) {
         .map(([key, value]) => `<li><span class="mono">${key}</span>: ${formatValue(value)}</li>`)
         .join("")}</ul>`
     : '<p class="muted">No numeric distribution available.</p>';
+  const chartHtml = renderFeatureChart(card);
 
   dom.featurePanelPlaceholder.classList.add("hidden");
   dom.featurePanelContent.classList.remove("hidden");
@@ -331,6 +418,10 @@ function openFeaturePanel(index) {
       ${renderPanelItem("Use In Model", card.use_in_model)}
       ${renderPanelItem("Recommended Action", card.recommended_action)}
       ${renderPanelItem("Rationale", card.rationale)}
+    </div>
+    <div class="subsection">
+      <h3>Chart</h3>
+      ${chartHtml}
     </div>
     <div class="subsection">
       <h3>Top Values</h3>
@@ -353,40 +444,108 @@ function closeFeaturePanel() {
   dom.featurePanelContent.innerHTML = "";
 }
 
+function cleaningGroupForOperation(operation) {
+  if (operation === "set_as_target") {
+    return "Target Setup";
+  }
+  if (operation === "exclude_column") {
+    return "Exclude";
+  }
+  if (operation === "impute_missing") {
+    return "Impute";
+  }
+  if (operation === "derive_indicator") {
+    return "Derive";
+  }
+  if (operation === "outlier_treatment" || operation === "count_feature_treatment") {
+    return "Outlier Handling";
+  }
+  return "Encoding / Other";
+}
+
+function updateApplyCleaningState() {
+  const selectedCount = state.selectedCleaningStepIds.size;
+  dom.applyCleaningButton.disabled = true;
+  dom.applyCleaningHint.textContent = `${selectedCount} selected`;
+}
+
 function renderCleaningPlan(cleaningPlanPayload) {
-  dom.cleaningChecklist.innerHTML = "";
+  dom.cleaningGroups.innerHTML = "";
   const items = cleaningPlanPayload?.recommended_transformations || [];
+  state.selectedCleaningStepIds = new Set();
+  updateApplyCleaningState();
   if (!items.length) {
-    const li = document.createElement("li");
-    li.className = "muted";
-    li.textContent = "No cleaning transformations returned for this run.";
-    dom.cleaningChecklist.appendChild(li);
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "No cleaning transformations returned for this run.";
+    dom.cleaningGroups.appendChild(empty);
     return;
   }
 
+  const groups = new Map();
   items.forEach((step, index) => {
-    const li = document.createElement("li");
-    const label = document.createElement("label");
-    label.className = "muted";
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.disabled = true;
-    checkbox.style.marginRight = "8px";
-
-    const column = step.column ? `column=${step.column}` : "column=dataset";
-    const operation = step.operation ? `operation=${step.operation}` : "operation=unknown";
-    const strategy = step.strategy ? `strategy=${step.strategy}` : null;
-    const parts = [column, operation];
-    if (strategy) {
-      parts.push(strategy);
+    const groupName = cleaningGroupForOperation(String(step.operation || ""));
+    const key = `${String(step.operation || "unknown")}|${String(step.column || "dataset")}|${String(step.new_column || "")}|${index}`;
+    if (!groups.has(groupName)) {
+      groups.set(groupName, []);
     }
+    groups.get(groupName).push({ step, index, key });
+  });
 
-    label.appendChild(checkbox);
-    label.appendChild(
-      document.createTextNode(`${index + 1}. ${parts.join(" · ")}${step.rationale ? ` — ${step.rationale}` : ""}`)
-    );
-    li.appendChild(label);
-    dom.cleaningChecklist.appendChild(li);
+  groups.forEach((entries, groupName) => {
+    const section = document.createElement("section");
+    section.className = "cleaning-group";
+
+    const heading = document.createElement("h3");
+    heading.textContent = groupName;
+    section.appendChild(heading);
+
+    const list = document.createElement("ul");
+    list.className = "cleaning-group-list";
+
+    entries.forEach(({ step, index, key }) => {
+      const row = document.createElement("li");
+      row.className = "cleaning-step";
+      const label = document.createElement("label");
+      label.className = "muted";
+
+      const description = [
+        step.column ? `column=${step.column}` : "column=dataset",
+        step.operation ? `operation=${step.operation}` : "operation=unknown",
+      ];
+      if (step.strategy) {
+        description.push(`strategy=${step.strategy}`);
+      }
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = state.selectedCleaningStepIds.has(key);
+      checkbox.addEventListener("change", () => {
+        if (checkbox.checked) {
+          state.selectedCleaningStepIds.add(key);
+        } else {
+          state.selectedCleaningStepIds.delete(key);
+        }
+        updateApplyCleaningState();
+      });
+
+      const text = document.createElement("span");
+      text.textContent = `${index + 1}. ${description.join(" · ")}`;
+
+      label.appendChild(checkbox);
+      label.appendChild(text);
+
+      const meta = document.createElement("div");
+      meta.className = "cleaning-step-meta";
+      meta.textContent = step.rationale || "No rationale provided.";
+
+      row.appendChild(label);
+      row.appendChild(meta);
+      list.appendChild(row);
+    });
+
+    section.appendChild(list);
+    dom.cleaningGroups.appendChild(section);
   });
 }
 

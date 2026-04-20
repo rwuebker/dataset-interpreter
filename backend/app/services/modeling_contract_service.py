@@ -43,6 +43,18 @@ def _is_text_like_column_name(column_name: str) -> bool:
     return normalized in {"name", "full_name", "description", "text", "title"}
 
 
+def _is_ordinal_like_numeric_column_name(column_name: str) -> bool:
+    normalized = column_name.strip().lower()
+    ordinal_tokens = ("class", "tier", "grade", "rank", "level", "pclass")
+    return any(token in normalized for token in ordinal_tokens)
+
+
+def _is_count_like_numeric_column_name(column_name: str) -> bool:
+    normalized = column_name.strip().lower()
+    count_tokens = ("count", "num", "qty", "quantity", "total", "sib", "parch", "child", "family")
+    return any(token in normalized for token in count_tokens)
+
+
 def _ordered_subset(columns: Iterable[str], ordered_source: list[str]) -> list[str]:
     lookup = set(columns)
     return [column for column in ordered_source if column in lookup]
@@ -233,6 +245,7 @@ def _recommended_preprocessing(
     issues_output: dict,
     role_sets: dict[str, list[str]],
     missing: dict[str, dict],
+    cardinality: dict[str, dict],
 ) -> list[dict]:
     columns = [str(column) for column in profile_output.get("column_names", [])]
     id_columns = set(role_sets.get("id_columns", []))
@@ -240,6 +253,14 @@ def _recommended_preprocessing(
     excluded = set(role_sets.get("excluded_by_default", []))
     numerical = set(profile_output.get("column_types", {}).get("numerical", []))
     high_card = set(role_sets.get("high_cardinality_categoricals", []))
+    outlier_columns = {
+        str(column): int(count)
+        for column, count in (issues_output.get("summary", {}).get("outlier_columns", {}) or {}).items()
+    }
+    rows_for_ratio = max(
+        int(issues_output.get("summary", {}).get("rows_analyzed", 0)) or int(profile_output.get("rows", 0)) or 1,
+        1,
+    )
 
     actions: list[dict] = []
     for column in columns:
@@ -277,6 +298,17 @@ def _recommended_preprocessing(
             continue
 
         missing_percent = float(missing.get(column, {}).get("missing_percent", 0.0))
+        if column in excluded and column in high_card and missing_percent < 70.0:
+            actions.append(
+                {
+                    "column": column,
+                    "operation": "exclude_column",
+                    "strategy": "high_cardinality_default_exclusion",
+                    "rationale": "High-cardinality raw feature is excluded by default.",
+                }
+            )
+            continue
+
         if missing_percent > 0:
             if column in numerical:
                 actions.append(
@@ -325,16 +357,39 @@ def _recommended_preprocessing(
                     "strategy": "frequency_or_target_encoding_with_cv",
                     "rationale": "High-cardinality categorical column requires non-one-hot encoding.",
                 }
-            )
+                )
 
     if str(issues_output.get("outliers", "none")) in {"moderate", "high"}:
         for column in role_sets.get("numeric_features", []):
+            outlier_ratio = float(outlier_columns.get(column, 0)) / float(rows_for_ratio)
+            if outlier_ratio < 0.01:
+                continue
+
+            unique_count = int(cardinality.get(column, {}).get("unique_count", 0))
+            is_discrete = unique_count <= 20
+            is_ordinal_like = _is_ordinal_like_numeric_column_name(column)
+            is_count_like = _is_count_like_numeric_column_name(column)
+
+            if is_ordinal_like:
+                continue
+
+            if is_count_like and is_discrete:
+                actions.append(
+                    {
+                        "column": column,
+                        "operation": "count_feature_treatment",
+                        "strategy": "cap_rare_high_values_or_bin_tail",
+                        "rationale": "Count-like feature has rare high values; capping or tail binning is preferred over scaling.",
+                    }
+                )
+                continue
+
             actions.append(
                 {
                     "column": column,
                     "operation": "outlier_treatment",
                     "strategy": "winsorize_or_robust_scale",
-                    "rationale": "Outlier severity indicates robust numeric preprocessing is recommended.",
+                    "rationale": "Continuous numeric feature shows meaningful outlier density.",
                 }
             )
 
@@ -418,6 +473,7 @@ def build_modeling_contract(
             issues_output=issues_output,
             role_sets=role_sets,
             missing=missing,
+            cardinality=cardinality,
         ),
         "artifacts": artifact_links,
     }

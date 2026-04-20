@@ -5,6 +5,16 @@ import pandas as pd
 from app.utils.file_utils import ensure_dir
 
 
+def _safe_indicator_name(column_name: str, existing_columns: set[str]) -> str:
+    base = "has_" + "".join(char if char.isalnum() else "_" for char in column_name.strip().lower())
+    candidate = base
+    suffix = 1
+    while candidate in existing_columns:
+        candidate = f"{base}_{suffix}"
+        suffix += 1
+    return candidate
+
+
 def _coerce_numeric_if_mostly_numeric(series: pd.Series, threshold: float = 0.9) -> pd.Series:
     if not pd.api.types.is_object_dtype(series) and not pd.api.types.is_string_dtype(series):
         return series
@@ -49,19 +59,35 @@ def run_optional_cleaning(ingestion_output: dict) -> dict:
             df[column_name] = converted
 
     imputed_columns: list[str] = []
-    for column_name in df.columns:
+    derived_columns: list[str] = []
+    dropped_columns: list[str] = []
+    for column_name in list(df.columns):
+        if column_name not in df.columns:
+            continue
         if not df[column_name].isna().any():
             continue
+
+        missing_percent = float(df[column_name].isna().mean() * 100.0)
 
         if pd.api.types.is_numeric_dtype(df[column_name]):
             replacement = df[column_name].median(skipna=True)
             if pd.isna(replacement):
                 replacement = 0
             df[column_name] = df[column_name].fillna(replacement)
-        else:
-            mode = df[column_name].mode(dropna=True)
-            replacement = mode.iloc[0] if not mode.empty else "missing"
-            df[column_name] = df[column_name].fillna(replacement)
+            imputed_columns.append(str(column_name))
+            continue
+
+        if missing_percent >= 60.0:
+            indicator_name = _safe_indicator_name(str(column_name), set(str(col) for col in df.columns))
+            df[indicator_name] = (~df[column_name].isna()).astype(int)
+            derived_columns.append(str(indicator_name))
+            df = df.drop(columns=[column_name])
+            dropped_columns.append(str(column_name))
+            continue
+
+        mode = df[column_name].mode(dropna=True)
+        replacement = mode.iloc[0] if not mode.empty else "missing"
+        df[column_name] = df[column_name].fillna(replacement)
         imputed_columns.append(str(column_name))
 
     duplicate_rows_removed = int(df.duplicated().sum())
@@ -85,5 +111,7 @@ def run_optional_cleaning(ingestion_output: dict) -> dict:
         "rows_removed": rows_before - rows_after,
         "duplicate_rows_removed": duplicate_rows_removed,
         "imputed_columns": imputed_columns,
+        "derived_columns": derived_columns,
+        "dropped_columns": dropped_columns,
         "type_fixed_columns": type_fixed_columns,
     }
