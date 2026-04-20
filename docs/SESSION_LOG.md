@@ -162,6 +162,10 @@
   - updated artifact resolution to validate manifest ownership (`manifest.job_id == requested job_id`)
   - preserved public API safety (no absolute local paths leaked)
   - added tests validating overwrite behavior and dataset-scoped persistence
+- Updated local demo frontend to support persistent artifact runs:
+  - added optional `dataset_id` input in `frontend/index.html`
+  - create-job payload now sends `dataset_id` when provided
+  - clarified UX text that blank `dataset_id` overwrites `_artifacts/current`
 
 ## Next Planned Work
 - Continue frontend implementation from Day 1-Day 2 docs:

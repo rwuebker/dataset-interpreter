@@ -43,6 +43,13 @@
         gap: 10px;
         margin-top: 14px;
       }
+      .row.stack {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+      .row.dual {
+        grid-template-columns: 1fr 1fr;
+      }
       input,
       button {
         border-radius: 10px;
@@ -108,6 +115,9 @@
         .row {
           grid-template-columns: 1fr;
         }
+        .row.dual {
+          grid-template-columns: 1fr;
+        }
         .grid {
           grid-template-columns: repeat(2, minmax(0, 1fr));
         }
@@ -129,15 +139,26 @@
           <span class="mono">https://www.kaggle.com/competitions/titanic/overview</span>.
         </p>
 
-        <form id="createForm" class="row">
-          <input
-            id="competitionInput"
-            type="text"
-            value="titanic"
-            placeholder="titanic"
-            autocomplete="off"
-          />
-          <button id="createButton" type="submit">Create Job</button>
+        <form id="createForm" class="row stack">
+          <div class="row dual">
+            <input
+              id="competitionInput"
+              type="text"
+              value="titanic"
+              placeholder="Kaggle competition slug (e.g. titanic)"
+              autocomplete="off"
+            />
+            <input
+              id="datasetIdInput"
+              type="text"
+              placeholder="Optional project/dataset ID (e.g. titanic_v1)"
+              autocomplete="off"
+            />
+          </div>
+          <div class="row">
+            <span class="muted">Leave dataset ID blank to overwrite <span class="mono">current</span>.</span>
+            <button id="createButton" type="submit">Create Job</button>
+          </div>
         </form>
 
         <p id="errorText" class="error"></p>
@@ -174,6 +195,7 @@
       const apiBaseText = document.getElementById("apiBaseText");
       const createForm = document.getElementById("createForm");
       const competitionInput = document.getElementById("competitionInput");
+      const datasetIdInput = document.getElementById("datasetIdInput");
       const createButton = document.getElementById("createButton");
       const errorText = document.getElementById("errorText");
       const resultCard = document.getElementById("resultCard");
@@ -200,6 +222,17 @@
         const afterMarker = trimmed.slice(markerIndex + marker.length);
         const slug = afterMarker.split(/[/?#]/, 1)[0];
         return slug || trimmed;
+      }
+
+      function normalizeDatasetId(rawValue) {
+        const trimmed = (rawValue || "").trim();
+        if (!trimmed) {
+          return "";
+        }
+        return trimmed
+          .replace(/[^a-zA-Z0-9_-]+/g, "_")
+          .replace(/^_+|_+$/g, "")
+          .slice(0, 80);
       }
 
       function setError(message) {
@@ -237,6 +270,7 @@
         setError("");
 
         const competitionSlug = normalizeCompetitionInput(competitionInput.value);
+        const datasetId = normalizeDatasetId(datasetIdInput.value);
         if (!competitionSlug) {
           setError("Please enter a Kaggle competition slug or URL.");
           return;
@@ -246,13 +280,18 @@
         createButton.textContent = "Creating...";
 
         try {
+          const requestBody = {
+            source_type: "kaggle",
+            kaggle: { competition: competitionSlug },
+          };
+          if (datasetId) {
+            requestBody.dataset_id = datasetId;
+          }
+
           const response = await fetch(`${apiBase}/jobs/create`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              source_type: "kaggle",
-              kaggle: { competition: competitionSlug },
-            }),
+            body: JSON.stringify(requestBody),
           });
 
           if (!response.ok) {
