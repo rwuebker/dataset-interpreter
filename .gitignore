@@ -33,6 +33,9 @@ build/
 dist/
 *.log
 
+# Local dataset artifacts
+backend/data/
+
 # Jupyter
 .ipynb_checkpoints/
 
